@@ -155,8 +155,7 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
-    # ========================================================================
-    def train(self, epochs=3.0, report_interval=10, valid_interval=1000, save_interval=1000):
+    def train(self, epochs=3.0, report_interval=10, valid_interval=100, save_interval=1000):
         # CODE BELOW COPY-PASTED FROM [HKML CNN Image Classification.ipynb]
         # (variable names changed to match new Engine architecture. Added comments and minor debugging)
         
@@ -173,7 +172,7 @@ class Engine:
         # Initialize iteration counter
         iteration = 0
         # Training loop
-        while ((int(epoch+0.5) < epochs) and continue_train):
+        while int(epoch+0.5) < epochs and continue_train:
             print('Epoch',int(epoch+0.5),'Starting @',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
             # Loop over data samples and into the network forward function
             for i, data in enumerate(self.train_iter):
@@ -223,43 +222,23 @@ class Engine:
                         best_val_acc = res["accuracy"]
                     else:
                         continue_train = True
-                        
+                    
                 if epoch >= epochs:
                     break
                     
-                print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' %(iteration,epoch,res['loss'],res['accuracy']))
-                    
                 # Save on the given intervals
                 if(i+1)%save_interval == 0:
-                    with torch.no_grad():
-                        
-                        self.model.eval()
-                        val_data = next(iter(self.val_iter))
-                        
-                        # Data and label
-                        self.data = val_data[0]
-                        self.label = val_data[1].long()
-                        
-                        res = self.forward(False)
-                        
-                        if(res["accuracy"]-best_val_acc > 1e-03):
-                            self.save_state(curr_iter=0)
-                            continue_train = True
-                            best_val_acc = res["accuracy"]
-                        else:
-                            continue_train = True
-            
+                    self.save_state(curr_iter=iteration)
+                    
+            print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']))
             
         self.val_log.close()
         self.train_log.close()
-    
-    # ========================================================================
 
     # Function to test the model performance on the validation
     # dataset ( returns loss, acc, confusion matrix )
     def validate(self, plt_worst=0, plt_best=0):
-        """
-        rTest the trained model on the validation set.
+        r"""Test the trained model on the validation set.
         
         Parameters: None
         
@@ -299,10 +278,6 @@ class Engine:
                 
                 sys.stdout.write("val_iterations : " + str(val_iterations) + "\n")
                 
-                self.data, self.label, batch_energies = val_data[0:3]
-                
-                self.label = self.label.long()
-                
                 self.data, self.label = val_data[0:2]
                 self.data = self.data.float()
                 self.label = self.label.long()
@@ -320,21 +295,23 @@ class Engine:
                 if pushing:
                     for i, lab in enumerate(self.label):
                         queues[lab].insert((result['softmax'][i][lab], PATH[i], IDX[i]))
-                        print(PATH[i])
                 
                 # Copy the tensors back to the CPU
                 self.label = self.label.to("cpu")
                 
                 # Add the local result to the final result
-                labels.extend(self.label)
-                predictions.extend(result['prediction'])
-                softmaxes.extend(result["softmax"])
-                energies.extend(batch_energies)
+                loss.append(val_loss)
+                accuracy.append(val_acc)
+                labels.append(self.label)
+                predictions.append(result['prediction'])
+                softmaxes.append(result["softmax"])
+                energies.append(energy)
+                
+                #print(self.data.shape)
+                #print(self.label.shape)
                 
                 val_iterations += 1
-                
-        print(val_iterations)
-
+         
         print("\nTotal val loss : ", val_loss,
               "\nTotal val acc : ", val_acc,
               "\nAvg val loss : ", val_loss/val_iterations,
@@ -370,10 +347,17 @@ class Engine:
             
             print("Dumped lists of extreme events at", plot_path)
         
+        np_softmaxes = np.array(softmaxes)
+
         np.save("labels" + str(run) + ".npy", np.hstack(labels))
         np.save("energies" + str(run) + ".npy", np.hstack(energies))
         np.save("predictions" + str(run) + ".npy", np.hstack(predictions))
-        np.save("softmax" + str(run) + ".npy", np.array(softmaxes))
+        np.save("softmax" + str(run) + ".npy",
+                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
+                                    np_softmaxes.shape[2]))
+        
+        
+        print(np_softmaxes.shape)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
@@ -425,85 +409,80 @@ class Engine:
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
         
-    def get_top_bottom_softmax(self, n_top=5, n_bottom=5, event_type=None, label_dict=None):
-        r"""Return the events with the highest and lowest softmax scores for
-            visualizing the model performance
-        
-        Parameters: None
-        
-        Outputs : 
-            n_top = number of events with the highest softmax score to return
-                    for the given event type
-            n_bottom = number of events with the lowest softmax score to return
-                       for the given event type
-            event_type = type of neutrino event to get the event data for
-            label_dict = dictionary that maps the event type to the labels
-                         used in the label tensor
-            
-            
-        Returns : Numpy array of event data for the events with the highest
-                  and lowest softmax score
-        
-        """
-        
-        # Variables to add or remove events
-        softmax_top = np.array([-1 for i in range(n_top)])
-        softmax_bottom = np.array([2 for i in range(n_bottom)])
-        
-        # Iterate over the validation set to get the desired events
-        with torch.no_grad():
-            
-            # Set the model to evaluation mode
-            self.model.eval()
-            
-             # Extract the event data and label from the DataLoader iterator
-            for val_data in iter(self.val_iter):
-                
-                self.data, self.label = val_data[0:2]
-                self.label = self.label.long()
-                
-                print(self.data.shape)
-                print(self.label.shape)
-                
-                # Use only the labels and event for the given event type
-                self.data = self.data[self.label == label_dict[event_type]]
-                self.label = self.label[self.label == label_dict[event_type]]
-                
-                print(self.data.shape)
-                print(self.label.shape)
-            
-                result = self.forward(False)
-                
-                # Copy the tensors back to the CPU
-                self.label = self.label.to("cpu")
-                
-                # Sort the softmax output to get the indices for the top and 
-                # bottom events to return or save
-                softmax_indices_sorted = np.argsort(result["softmax"][:,label_dict[event_type]])
-                
-                # Get the indices for the top and bottom events
-                softmax_top_n = softmax_indices_sorted[softmax_indices_sorted.shape[0]-n_top:]
-                softmax_bottom_n = softmax_indices_sorted[:n_bottom]
-                
-                # Append the local top and bottom items to the global top and bottom items
-                softmax_top = np.append(softmax_top,
-                                        result["softmax"][softmax_top_n,label_dict[event_type]])
-                softmax_bottom = np.append(softmax_bottom,
-                                        result["softmax"][softmax_bottom_n,label_dict[event_type]])
-                
-                # Sort the global top and bottom softmax array and get the top and bottom sections
-                softmax_top 
-                
-                
-        
-        
-    # ========================================================================
-    
+    # The function below is deprecated
+# =============================================================================
+#     def get_top_bottom_softmax(self, n_top=5, n_bottom=5, event_type=None, label_dict=None):
+#         r"""Return the events with the highest and lowest softmax scores for
+#             visualizing the model performance
+#         
+#         Parameters: None
+#         
+#         Outputs : 
+#             n_top = number of events with the highest softmax score to return
+#                     for the given event type
+#             n_bottom = number of events with the lowest softmax score to return
+#                        for the given event type
+#             event_type = type of neutrino event to get the event data for
+#             label_dict = dictionary that maps the event type to the labels
+#                          used in the label tensor
+#             
+#             
+#         Returns : Numpy array of event data for the events with the highest
+#                   and lowest softmax score
+#         
+#         """
+#         
+#         # Variables to add or remove events
+#         softmax_top = np.array([-1 for i in range(n_top)])
+#         softmax_bottom = np.array([2 for i in range(n_bottom)])
+#         
+#         # Iterate over the validation set to get the desired events
+#         with torch.no_grad():
+#             
+#             # Set the model to evaluation mode
+#             self.model.eval()
+#             
+#              # Extract the event data and label from the DataLoader iterator
+#             for val_data in iter(self.val_iter):
+#                 
+#                 self.data, self.label = val_data[0:2]
+#                 self.label = self.label.long()
+#                 
+#                 print(self.data.shape)
+#                 print(self.label.shape)
+#                 
+#                 # Use only the labels and event for the given event type
+#                 self.data = self.data[self.label == label_dict[event_type]]
+#                 self.label = self.label[self.label == label_dict[event_type]]
+#                 
+#                 print(self.data.shape)
+#                 print(self.label.shape)
+#             
+#                 result = self.forward(False)
+#                 
+#                 # Copy the tensors back to the CPU
+#                 self.label = self.label.to("cpu")
+#                 
+#                 # Sort the softmax output to get the indices for the top and 
+#                 # bottom events to return or save
+#                 softmax_indices_sorted = np.argsort(result["softmax"][:,label_dict[event_type]])
+#                 
+#                 # Get the indices for the top and bottom events
+#                 softmax_top_n = softmax_indices_sorted[softmax_indices_sorted.shape[0]-n_top:]
+#                 softmax_bottom_n = softmax_indices_sorted[:n_bottom]
+#                 
+#                 # Append the local top and bottom items to the global top and bottom items
+#                 softmax_top = np.append(softmax_top,
+#                                         result["softmax"][softmax_top_n,label_dict[event_type]])
+#                 softmax_bottom = np.append(softmax_bottom,
+#                                         result["softmax"][softmax_bottom_n,label_dict[event_type]])
+#                 
+#                 # Sort the global top and bottom softmax array and get the top and bottom sections
+#                 softmax_top 
+# ============================================================================
             
     def save_state(self, curr_iter=0):
-        #filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
-        #filename = str(self.config.model[1])+"-"+"iter-"+str(curr_iter)+".save"
-        filename = str(self.config.model[1])+"-"+"trained.save"
+        filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
         # Save parameters
         # 0+1) iteration counter + optimizer state => in case we want to "continue training" later
         # 2) network weight

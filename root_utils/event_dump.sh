@@ -4,6 +4,13 @@
 
 # Usage: ./event_dump.sh INPUT_DIR OUTPUT_DIR
 # Put entire script in subshell to kill with single Ctrl-C
+
+source /project/rpp-tanaka-ab/hk_software/nuPRISM/sourceme.sh
+module load python/2.7.14
+module load scipy-stack
+export PYTHONPATH=$ROOTSYS/../bindings/pyroot:$PYTHONPATH
+# Comment out the above lines if not on Cedar (ComputeCanada)
+
 (
 input_dir=$1
 output_dir=$2
@@ -27,6 +34,6 @@ for file in ${valids[@]}; do
 done
 
 if [ $idx == $total ]; then
-    echo "\n==== Finished processing $total files! ===="
+    echo "==== Finished processing $total files! ===="
 fi
 )

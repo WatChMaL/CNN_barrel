@@ -44,8 +44,8 @@ if __name__ == '__main__':
         raise ValueError("No files provided!!")
     print("Merging "+str(len(files))+" files")
     
-    print("Files are:")
-    print(files)
+    #print("Files are:")
+    #print(files)
 
 
     # -- Start merging
@@ -218,9 +218,3 @@ if __name__ == '__main__':
 
     # -- Finish
     print("Merging complete")
-    
-    in_dir = os.path.dirname(config.input_file_list[0])
-    out_dir = os.path.dirname(config.output_file[0])
-    if ROOT_DUMP not in os.listdir(out_dir):
-        os.rename(in_dir+ROOT_DUMP, out_dir+ROOT_DUMP)
-        print("Moved root file list to output directory:", out_dir)
