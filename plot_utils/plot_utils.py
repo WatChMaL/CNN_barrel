@@ -8,9 +8,7 @@ from __future__ import division
 from __future__ import print_function
 import numpy as np
 import math
-import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.stats import gaussian_kde
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, auc
 

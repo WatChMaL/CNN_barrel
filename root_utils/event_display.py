@@ -50,7 +50,7 @@ def event_display(config):
         
     wl = open(config.input_file, 'r')
     lines = wl.readlines()
-    for line in lines:
+    for i, line in enumerate(lines):
         splits = line.split()
         softmax = splits[0].strip()
         input_file = splits[1].strip()
@@ -60,7 +60,9 @@ def event_display(config):
         
         event_class = get_class(input_file)
         write_dir = config.output_dir+event_class+"_softmax"+str(softmax).split('.')[0]+'_'+str(softmax).split('.')[1]+"/"
-        if not os.path.isdir(write_dir):
+        if os.path.isdir(write_dir):
+            write_dir += '_'+str(i)
+        else:
             os.mkdir(write_dir)
     
         norm=plt.Normalize()

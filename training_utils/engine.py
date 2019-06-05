@@ -127,6 +127,7 @@ class Engine:
         """
         with torch.set_grad_enabled(train):
             # Move the data and the labels to the GPU
+            self.data = self.data.float()
             self.data = self.data.to(self.device)
             self.label = self.label.to(self.device)
                         
@@ -156,6 +157,11 @@ class Engine:
         self.optimizer.step()
         
     def train(self, epochs=3.0, report_interval=10, valid_interval=100, save_interval=1000):
+        
+        if len(self.dset.train_indices) == 0:
+            print("No examples in training set, skipping training...")
+            return
+        
         # CODE BELOW COPY-PASTED FROM [HKML CNN Image Classification.ipynb]
         # (variable names changed to match new Engine architecture. Added comments and minor debugging)
         
@@ -251,6 +257,10 @@ class Engine:
         Returns : None
         """
         
+        if len(self.dset.val_indices) == 0:
+            print("No examples in validation set, skipping validation...")
+            return
+        
         # Run number
         run = 8
         
@@ -279,7 +289,6 @@ class Engine:
                 sys.stdout.write("val_iterations : " + str(val_iterations) + "\n")
                 
                 self.data, self.label = val_data[0:2]
-                self.data = self.data.float()
                 self.label = self.label.long()
                 
                 energy, PATH, IDX = val_data[2:5]
@@ -355,9 +364,6 @@ class Engine:
         np.save("softmax" + str(run) + ".npy",
                 np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
                                     np_softmaxes.shape[2]))
-        
-        
-        print(np_softmaxes.shape)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
@@ -375,6 +381,11 @@ class Engine:
             
         Returns : None
         """
+        
+        if len(self.dset.test_indices) == 0:
+            print("No examples in testing set, skipping testing...")
+            return
+        
         # Variables to output at the end
         test_loss = 0.0
         test_acc = 0.0

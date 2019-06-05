@@ -14,7 +14,8 @@ class WCH5Dataset(Dataset):
 
 
     def __init__(self, path, val_split, test_split, shuffle=True, transform=None, reduced_dataset_size=None, seed=42):
-
+        
+        assert val_split+test_split <= 1, "val_split and test_split cannot sum to larger than 1, aborting."
 
         f=h5py.File(path,'r')
         hdf5_event_data = f["event_data"]
@@ -81,12 +82,15 @@ class WCH5Dataset(Dataset):
         #restore the prng state
         if seed is not None:
             np.random.set_state(rstate)
-
+            
         n_val = int(len(indices) * val_split)
         n_test = int(len(indices) * test_split)
-        self.train_indices = indices[:-n_val-n_test]
-        self.val_indices = indices[-n_test-n_val:-n_test]
-        self.test_indices = indices[-n_test:]
+        self.test_indices = indices[:n_test]
+        self.val_indices = indices[n_test:n_test+n_val]
+        self.train_indices = indices[n_test+n_val:]
+        print(len(self.train_indices), "examples in training set.")
+        print(len(self.val_indices), "examples in validation set.")
+        print(len(self.test_indices), "examples in testing set.")
 
     def __getitem__(self,index):
         if self.transform is None:

@@ -39,8 +39,8 @@ def normalize_dataset(config, c_func=None, t_func=None):
     time_data = event_data[:,:,:,19:]
     
     # Open output file for saving
-    if not os.path.isdir(os.path.pardir(config.output_file)):
-        os.mkdir(os.path.pardir(config.output_file))
+    if not os.path.isdir(os.path.dirname(config.output_file)):
+        os.mkdir(os.path.dirname(config.output_file))
     print("Saving normalized dataset to", config.output_file)
     outfile = h5py.File(config.output_file, 'x')
     # Generate data categories
@@ -56,7 +56,7 @@ def normalize_dataset(config, c_func=None, t_func=None):
         if key == NORM_CAT and c_func is not None and t_func is not None:
             c_func(chrg_data)
             t_func(time_data)
-            data = np.concatenate(chrg_data, time_data, axis=-1)
+            data = np.concatenate((chrg_data, time_data), axis=-1)
         else:
             data = infile[key]
         chunk_length = data.shape[0]
@@ -73,65 +73,52 @@ def normalize_dataset(config, c_func=None, t_func=None):
     # Close files
     infile.close()
     outfile.close()
+    
+    print("Normalization complete.")
 
 # =================== NORMALIZATION FUNCTION CANDIDATES ====================
 
-# Current candidate for c_func
 # Function that divides every (non-zero) entry in data array by the mean of the data (in-place)
 def divide_by_mean(data):
     check_data(data)
     # Calculate mean of all non-zero hits
-    total_sum, count = 0, 0
-    for event in data:
-        for row in event:
-            for mpmt in row:
-                for hit in mpmt:
-                    if hit != 0:
-                        total_sum += hit
-                        count += 1
-    mean = total_sum / count
-    
-    # Divide all non-zero hits by mean
-    for a, event in enumerate(data):
-        for b, row in enumerate(event):
-            for c, mpmt in enumerate(row):
-                for d, hit in enumerate(mpmt):
-                    if hit != 0:
-                       data[a][b][c][d] = hit / mean
+    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+    mean = np.mean(nonzero)
+    # Divide data by mean
+    data /= mean
+
+# Function that divides every (non-zero) entry in data array by the median of the data (in-place)
+def divide_by_median(data):
+    check_data(data)
+    # Find median of all non-zero hits
+    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+    median = np.median(nonzero)
+    # Divide data by median
+    data /= median
 
 # Function that divides every (non-zero) entry in data array by the mean of the individual events (in-place)
 def divide_by_mean_event(data):
     check_data(data)
     for i, event in enumerate(data):
-        divide_by_mean(event)
+        divide_by_mean(np.asarray([event]))
         data[i] = event
         
 # Function that removes offsets in data by setting the lowest non-zero hit value as the new zero (in-place)
 def remove_offset_lowest(data):
     check_data(data)
     # Find minimum non-zero hit value
-    minimum = sys.maxsize
-    for event in data:
-        for row in event:
-            for mpmt in row:
-                for hit in mpmt:
-                    if hit != 0 and hit < minimum:
-                        minimum = hit
-    
+    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+    minimum = np.amin(nonzero)
     # Subtract minimum value from every value
-    for a, event in enumerate(data):
-        for b, row in enumerate(event):
-            for c, mpmt in enumerate(row):
-                for d, hit in enumerate(mpmt):
-                    if hit != 0:
-                       data[a][b][c][d] = hit - minimum
-
+    data -= minimum
+    
 # Current candidate for t_func
 def remove_offset_and_divide_by_mean_event(data):
     check_data(data)
     remove_offset_lowest(data)
     divide_by_mean_event(data)
 
+# Helper function to check input data shape
 def check_data(data):
     assert len(data.shape) == 4, "Invalid data shape (required: n, 16, 40, 19), aborting"
     assert data.shape[1:] == (16, 40, 19), "Invalid data shape (required: n, 16, 40, 19), aborting"
@@ -139,4 +126,4 @@ def check_data(data):
 # Main
 if __name__ == "__main__":
     config = parse_args()
-    normalize_dataset(config)
+    normalize_dataset(config, divide_by_median, remove_offset_and_divide_by_mean_event)
