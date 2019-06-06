@@ -4,11 +4,12 @@ Transforms input HDF5 dataset into output HDF5 dataset (not in place).
 
 Author: Julian Ding
 """
-import os, sys
+import os
 import argparse
 import h5py
 import numpy as np
 from math import ceil
+from scipy.stats import mode
 
 # Key for data dimension that requires normalization
 NORM_CAT = 'event_data'
@@ -50,12 +51,13 @@ def normalize_dataset(config, c_func=None, t_func=None):
         dsets[key]=c_dset
     # Write data to outfile
     block_size = int(config.block_size)
+    print("Normalization scheme: charge =", str(c_func), "| timing =", str(t_func))
     for key in infile.keys():
         offset=0
         # If the category is the data we wish to normalize, apply normalization function
         if key == NORM_CAT and c_func is not None and t_func is not None:
-            c_func(chrg_data)
-            t_func(time_data)
+            chrg_data = c_func(chrg_data)
+            time_data = t_func(time_data)
             data = np.concatenate((chrg_data, time_data), axis=-1)
         else:
             data = infile[key]
@@ -78,14 +80,14 @@ def normalize_dataset(config, c_func=None, t_func=None):
 
 # =================== NORMALIZATION FUNCTION CANDIDATES ====================
 
-# Function that divides every (non-zero) entry in data array by the mean of the data (in-place)
+# Function that divides every (non-zero) entry in data array by the mean of the data
 def divide_by_mean(data):
     check_data(data)
     # Calculate mean of all non-zero hits
     nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
     mean = np.mean(nonzero)
     # Divide data by mean
-    data /= mean
+    return data / mean
 
 # Function that divides every (non-zero) entry in data array by the median of the data (in-place)
 def divide_by_median(data):
@@ -94,29 +96,47 @@ def divide_by_median(data):
     nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
     median = np.median(nonzero)
     # Divide data by median
-    data /= median
+    return data / median
 
 # Function that divides every (non-zero) entry in data array by the mean of the individual events (in-place)
 def divide_by_mean_event(data):
     check_data(data)
+    out = []
     for i, event in enumerate(data):
-        divide_by_mean(np.asarray([event]))
-        data[i] = event
+        out.append(divide_by_mean(np.asarray([event])))
+    return np.asarray(out)
+
+# Function that divides every (non-zero) entry in data array by the median of the individual events (in-place)
+def divide_by_median_event(data):
+    check_data(data)
+    out = []
+    for i, event in enumerate(data):
+        out.append(divide_by_median(np.asarray([event])))
+    return np.asarray(out)
+
+# Function that scales a dataset logarithmically: x = log(x+1) (in-place)
+def scale_log(data):
+    check_data(data)
+    return np.log(data+1)
         
-# Function that removes offsets in data by setting the lowest non-zero hit value as the new zero (in-place)
-def remove_offset_lowest(data):
+# Function that removes offsets in data by setting the mode (peak) non-zero hit value as the new zero (in-place)
+def remove_offset(data):
     check_data(data)
-    # Find minimum non-zero hit value
+    # Find mode non-zero hit value
     nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
-    minimum = np.amin(nonzero)
-    # Subtract minimum value from every value
-    data -= minimum
+    data_mode = mode(nonzero, axis=None)[0]
+    # Subtract minimum value from every nonzero value
+    out = data - data_mode
+    return out.clip(0)
     
-# Current candidate for t_func
-def remove_offset_and_divide_by_mean_event(data):
+# Function compositions
+def divide_by_mean_remove_offset(data):
     check_data(data)
-    remove_offset_lowest(data)
-    divide_by_mean_event(data)
+    return remove_offset(divide_by_mean_event(data))
+
+def remove_offset_scale_log(data):
+    check_data(data)
+    return scale_log(remove_offset(data))
 
 # Helper function to check input data shape
 def check_data(data):
@@ -126,4 +146,4 @@ def check_data(data):
 # Main
 if __name__ == "__main__":
     config = parse_args()
-    normalize_dataset(config, divide_by_median, remove_offset_and_divide_by_mean_event)
+    normalize_dataset(config, scale_log, remove_offset)

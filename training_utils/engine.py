@@ -19,14 +19,12 @@ import numpy as np
 
 from io_utils.data_handling import WCH5Dataset
 from visualization_utils.notebook_utils import CSVData
-from visualization_utils.plot_utils import plot_confusion_matrix
+import visualization_utils.plot_utils as plu
 
 from training_utils.doublepriorityqueue import DoublePriority
 
 GAMMA, ELECTRON, MUON = 0, 1, 2
-
 ROOT_DUMP = 'ROOTS.txt'
-
 EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
 
 class Engine:
@@ -243,7 +241,7 @@ class Engine:
 
     # Function to test the model performance on the validation
     # dataset ( returns loss, acc, confusion matrix )
-    def validate(self, plt_worst=0, plt_best=0):
+    def validate(self, plt_worst=0, plt_best=0, save_plots=True):
         r"""Test the trained model on the validation set.
         
         Parameters: None
@@ -364,6 +362,13 @@ class Engine:
         np.save("softmax" + str(run) + ".npy",
                 np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
                                     np_softmaxes.shape[2]))
+        
+        # If requested, save analysis plots
+        if save_plots:
+            np.savez_compressed(self.config.save_path+'val_state.npz',
+                                result=result
+                                data=self.config.path)
+            self.dump_visuals(result)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
@@ -419,6 +424,51 @@ class Engine:
               "\nTotal test acc : ", test_acc,
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
+        
+    def dump_visuals(self, result):
+        prediction = result['prediction']
+        softmax = result['softmax']
+        loss = result['loss']
+        accuracy = result['accuracy']
+        class_names = ['gamma', 'electron', 'muon']
+        labels = self.dset['labels']
+        vis_energies = plu.convert_to_visible_energy(self.dset['energies'], labels)
+        
+        plu.plot_event_energy_distribution(vis_energies, labels, save_path=self.config.save_path)
+        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, 0, np.max(vis_energies), save_path=self.config.save_path)
+        plu.plot_classifier_response(softmax, labels, vis_energies, save_path=self.config.save_path)
+        # gamma vs electron
+        index_dict = 
+        plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, "gamma", "electron", 0, np.max(vis_energies), save_path=self.config.save_path)
+        # gamma vs 
+        
+    def save_state(self, curr_iter=0):
+        filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
+        # Save parameters
+        # 0+1) iteration counter + optimizer state => in case we want to "continue training" later
+        # 2) network weight
+        torch.save({
+            'global_step': self.iteration,
+            'optimizer': self.optimizer.state_dict(),
+            'state_dict': self.model.state_dict()
+        }, filename)
+        print('Saved checkpoint as:', filename)
+        return filename
+
+    def restore_state(self, weight_file):
+        # Open a file in read-binary mode
+        with open(weight_file, 'rb') as f:
+            print('Restoring state from', weight_file)
+            # torch interprets the file, then we can access using string keys
+            checkpoint = torch.load(f,map_location="cuda:0" if (self.config.device == 'gpu') else 'cpu')
+            # load network weights
+            self.model.load_state_dict(checkpoint['state_dict'], strict=False)
+            # if optim is provided, load the state of the optim
+            if self.optimizer is not None:
+                self.optimizer.load_state_dict(checkpoint['optimizer'])
+            # load iteration count
+            self.iteration = checkpoint['global_step']
+        print('Restoration complete.')
         
     # The function below is deprecated
 # =============================================================================
@@ -491,32 +541,3 @@ class Engine:
 #                 # Sort the global top and bottom softmax array and get the top and bottom sections
 #                 softmax_top 
 # ============================================================================
-            
-    def save_state(self, curr_iter=0):
-        filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
-        # Save parameters
-        # 0+1) iteration counter + optimizer state => in case we want to "continue training" later
-        # 2) network weight
-        torch.save({
-            'global_step': self.iteration,
-            'optimizer': self.optimizer.state_dict(),
-            'state_dict': self.model.state_dict()
-        }, filename)
-        print('Saved checkpoint as:', filename)
-        return filename
-
-    def restore_state(self, weight_file):
-        # Open a file in read-binary mode
-        with open(weight_file, 'rb') as f:
-            print('Restoring state from', weight_file)
-            # torch interprets the file, then we can access using string keys
-            checkpoint = torch.load(f,map_location="cuda:0" if (self.config.device == 'gpu') else 'cpu')
-            # load network weights
-            self.model.load_state_dict(checkpoint['state_dict'], strict=False)
-            # if optim is provided, load the state of the optim
-            if self.optimizer is not None:
-                self.optimizer.load_state_dict(checkpoint['optimizer'])
-            # load iteration count
-            self.iteration = checkpoint['global_step']
-        print('Restoration complete.')
-            
