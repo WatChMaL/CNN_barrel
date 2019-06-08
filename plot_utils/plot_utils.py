@@ -54,7 +54,7 @@ def convert_to_visible_energy(energies, labels):
     return energies
 
 # Function to plot the energy distribution over a given dataset
-def plot_event_energy_distribution(energies, labels, label_dict=None, dset_type="full", show_plot=False, save_path=None):
+def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full", show_plot=False, save_path=None):
     
     """
     plot_confusion_matrix(labels, predictions, energies, class_names, min_energy, max_energy, save_path=None)
@@ -68,8 +68,6 @@ def plot_event_energy_distribution(energies, labels, label_dict=None, dset_type=
           show_plot[optional] ... Boolean to determine whether to display the plot, default=False
           save_path[optional] ... Path to save the plot as an image, default=None
     """
-    # Assertions
-    assert label_dict != None
     
     # Extract the event energies corresponding to given event types
     energies_dict = {}
@@ -176,7 +174,7 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
         
         
 # Plot the classifier for a given event type for several true event types
-def plot_classifier_response(softmaxes, labels, energies, labels_dict=None, event_dict=None, min_energy=0,
+def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dict, min_energy=0,
                              max_energy=1000, num_bins=100, show_plot=False, save_path=None):
     
     """
@@ -202,8 +200,6 @@ def plot_classifier_response(softmaxes, labels, energies, labels_dict=None, even
     
     assert softmaxes is not None and softmaxes.any() != None
     assert labels is not None and labels.any() != None
-    assert labels_dict != None
-    assert event_dict != None
     
     
     # Initialize the plot and corresponding parameters
@@ -365,7 +361,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
     return fpr_0, tpr_0, threshold_0, roc_auc_0, fpr_1, tpr_1, threshold_1, roc_auc_1
 
 # Plot signal efficiency for a given event type at different energies
-def plot_signal_efficiency(softmaxes, labels, energies, index_dict=None, event=None,
+def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
                            average_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
                            min_energy=100, max_energy=1000, num_bins=100, show_plot=False,
                            save_path=None):
@@ -398,8 +394,6 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict=None, event=N
     assert softmaxes.any() != None
     assert labels.any() != None
     assert energies.any() != None
-    assert index_dict != None
-    assert event != None
     assert len(average_efficiencies) >= 3
     assert num_bins >= 100
     
@@ -505,7 +499,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict=None, event=N
         plt.close() # Close the opened window
         
 # Plot background rejection for a given event
-def plot_background_rejection(softmaxes, labels, energies, index_dict=None, event=None,
+def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
                               average_efficiencies=[0.2, 0.5, 0.8], energy_interval=5,
                               min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None):
@@ -539,8 +533,6 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict=None, even
     assert labels.any() != None
     assert energies.any() != None
     assert len(average_efficiencies) >= 3
-    assert index_dict != None
-    assert event != None
     assert num_bins >= 100
     
     # Calculate the threshold here according to the desired average efficiencies

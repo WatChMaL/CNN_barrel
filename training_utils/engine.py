@@ -19,7 +19,7 @@ import numpy as np
 
 from io_utils.data_handling import WCH5Dataset
 from visualization_utils.notebook_utils import CSVData
-import visualization_utils.plot_utils as plu
+import plot_utils.plot_utils as plu
 
 from training_utils.doublepriorityqueue import DoublePriority
 
@@ -365,10 +365,12 @@ class Engine:
         
         # If requested, save analysis plots
         if save_plots:
+            result['labels'] = np.hstack(labels)
+            result['energies'] = np.hstack(energies)
             np.savez_compressed(self.config.save_path+'val_state.npz',
-                                result=result
+                                result=result,
                                 data=self.config.path)
-            self.dump_visuals(result)
+            #self.dump_visuals(result)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
@@ -424,24 +426,35 @@ class Engine:
               "\nTotal test acc : ", test_acc,
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
-        
+    
+    # TODO: Make file names more descriptive
     def dump_visuals(self, result):
         prediction = result['prediction']
         softmax = result['softmax']
+        print(softmax.shape)
         loss = result['loss']
         accuracy = result['accuracy']
-        class_names = ['gamma', 'electron', 'muon']
-        labels = self.dset['labels']
-        vis_energies = plu.convert_to_visible_energy(self.dset['energies'], labels)
+        labels = result['labels']
+        energies = result['energies']
+    
+        vis_energies = plu.convert_to_visible_energy(energies, labels)
         
-        plu.plot_event_energy_distribution(vis_energies, labels, save_path=self.config.save_path)
-        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, 0, np.max(vis_energies), save_path=self.config.save_path)
-        plu.plot_classifier_response(softmax, labels, vis_energies, save_path=self.config.save_path)
-        # gamma vs electron
-        index_dict = 
-        plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, "gamma", "electron", 0, np.max(vis_energies), save_path=self.config.save_path)
-        # gamma vs 
+        class_names = ['gamma', 'e', 'mu']
+        index_dict = {name:index for index, name in enumerate(class_names)}
         
+        plu.plot_event_energy_distribution(vis_energies, labels, index_dict, save_path=self.config.save_path+"energy_distribution.eps")
+        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, 0, np.max(vis_energies), save_path=self.config.save_path+"confusion_matrix.eps")
+        
+        for i, name in enumerate(class_names):
+            plu.plot_classifier_response(softmax, labels, vis_energies, index_dict, {name:i}, save_path=self.config.save_path+"classifier_response_"+name+".eps")
+            other = class_names[(i+1)%len(class_names)]
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, 0, np.max(vis_energies), save_path=self.config.save_path+name+"_vs_"+other+".eps")
+        index_dict = {name:index for index, name in enumerate(class_names[:2])}
+        for name, i in index_dict.items():
+            plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, save_path=self.config.save_path+"signal_efficiency_"+name+".eps")
+            plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, save_path=self.config.save_path+"background_rejection_"+name+".eps")
+        
+
     def save_state(self, curr_iter=0):
         filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
         # Save parameters

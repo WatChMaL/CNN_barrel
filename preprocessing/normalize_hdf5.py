@@ -8,8 +8,7 @@ import os
 import argparse
 import h5py
 import numpy as np
-from math import ceil
-from scipy.stats import mode
+from math import ceil, floor
 
 # Key for data dimension that requires normalization
 NORM_CAT = 'event_data'
@@ -22,12 +21,15 @@ def parse_args():
     parser.add_argument('--output_file', '-out', dest="output_file", type=str, nargs=1,
                         help="desired output path")
     parser.add_argument('--block_size', '-blk', dest="block_size", type=int, default=3500,
-                        required=False)
+                        help="number of events to load into memory at once", required=False)
+    parser.add_argument('--chrg_norm', '-cf', dest="chrg_norm_func", type=str, nargs=1, default=['identity'],
+                        help="normalization function to apply to charge data", required=False)
+    parser.add_argument('--time_norm', '-tf', dest="time_norm_func", type=str, nargs=1, default=['identity'],
+                        help="normalization function to apply to time data", required=False)
     args = parser.parse_args()
     return args
 
-# c_func and t_func must transform data in-place
-def normalize_dataset(config, c_func=None, t_func=None):
+def normalize_dataset(config):
     config.input_file = config.input_file[0]
     config.output_file = config.output_file[0]
     # Ensure specified input file exists, then open file
@@ -51,11 +53,14 @@ def normalize_dataset(config, c_func=None, t_func=None):
         dsets[key]=c_dset
     # Write data to outfile
     block_size = int(config.block_size)
-    print("Normalization scheme: charge =", str(c_func), "| timing =", str(t_func))
     for key in infile.keys():
+        print('Saving key', key, '| Block size:', block_size)
         offset=0
         # If the category is the data we wish to normalize, apply normalization function
-        if key == NORM_CAT and c_func is not None and t_func is not None:
+        if key == NORM_CAT:
+            c_func = globals()[config.chrg_norm_func[0]]
+            t_func = globals()[config.time_norm_func[0]]
+            print(key, "normalization scheme: charge =", str(c_func), "| timing =", str(t_func))
             chrg_data = c_func(chrg_data)
             time_data = t_func(time_data)
             data = np.concatenate((chrg_data, time_data), axis=-1)
@@ -70,6 +75,7 @@ def normalize_dataset(config, c_func=None, t_func=None):
             if block_end>chunk_length:
                 block_end=chunk_length
             dsets[key][offset+block_begin:offset+block_end] = data[block_begin:block_end]
+            print(iblock, 'of', num_blocks_in_file, 'blocks written')
         offset+=block_end
         
     # Close files
@@ -79,8 +85,12 @@ def normalize_dataset(config, c_func=None, t_func=None):
     print("Normalization complete.")
 
 # =================== NORMALIZATION FUNCTION CANDIDATES ====================
+    
+# Identity function that returns the input dataset
+def identity(data):
+    return data
 
-# Function that divides every (non-zero) entry in data array by the mean of the data
+# Function that divides every entry in data array by the (non-zero) mean of the data
 def divide_by_mean(data):
     check_data(data)
     # Calculate mean of all non-zero hits
@@ -89,7 +99,7 @@ def divide_by_mean(data):
     # Divide data by mean
     return data / mean
 
-# Function that divides every (non-zero) entry in data array by the median of the data (in-place)
+# Function that divides every entry in data array by the (non-zero) median of the data
 def divide_by_median(data):
     check_data(data)
     # Find median of all non-zero hits
@@ -98,45 +108,74 @@ def divide_by_median(data):
     # Divide data by median
     return data / median
 
-# Function that divides every (non-zero) entry in data array by the mean of the individual events (in-place)
-def divide_by_mean_event(data):
-    check_data(data)
-    out = []
-    for i, event in enumerate(data):
-        out.append(divide_by_mean(np.asarray([event])))
-    return np.asarray(out)
+# Function that divides every entry in a data array by the max of the data
+def divide_by_max(data):
+    return data / np.amax(data)
 
-# Function that divides every (non-zero) entry in data array by the median of the individual events (in-place)
-def divide_by_median_event(data):
-    check_data(data)
-    out = []
-    for i, event in enumerate(data):
-        out.append(divide_by_median(np.asarray([event])))
-    return np.asarray(out)
+## Function that divides every entry in data array by the (non-zero) mean of the individual events
+#def divide_by_mean_event(data):
+#    check_data(data)
+#    out = []
+#    for i, event in enumerate(data):
+#        out.append(divide_by_mean(np.asarray([event])))
+#    return np.asarray(out)
+#
+## Function that divides every (non-zero) entry in data array by the median of the individual events
+#def divide_by_median_event(data):
+#    check_data(data)
+#    out = []
+#    for i, event in enumerate(data):
+#        out.append(divide_by_median(np.asarray([event])))
+#    return np.asarray(out)
 
-# Function that scales a dataset logarithmically: x = log(x+1) (in-place)
+# Function that scales a dataset logarithmically: x = log(x+1)
 def scale_log(data):
     check_data(data)
     return np.log(data+1)
-        
-# Function that removes offsets in data by setting the mode (peak) non-zero hit value as the new zero (in-place)
-def remove_offset(data):
-    check_data(data)
-    # Find mode non-zero hit value
-    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
-    data_mode = mode(nonzero, axis=None)[0]
-    # Subtract minimum value from every nonzero value
-    out = data - data_mode
-    return out.clip(0)
-    
-# Function compositions
-def divide_by_mean_remove_offset(data):
-    check_data(data)
-    return remove_offset(divide_by_mean_event(data))
 
-def remove_offset_scale_log(data):
+# Function that removes offsets in data by setting the lowest non-zero hit value as the new zero
+def remove_offset_min(data):
     check_data(data)
-    return scale_log(remove_offset(data))
+    # Find minimum non-zero hit value
+    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+    minimum = np.amin(nonzero)
+    # Subtract minimum value from every value
+    return (data-minimum).clip(0)
+
+# Function that removes offsets in data by setting the mode (peak) non-zero hit value to 1
+def remove_offset_mode(data, bins=10000):
+    check_data(data)
+    # Find mode non-zero hit value by binning data and selecting highest-frequency bin
+    nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+    data_max = np.amax(nonzero)
+    interval = data_max/bins
+    flat_data = nonzero.reshape(-1,1)
+    binned_data = np.zeros((bins+1, 1))
+    for item in flat_data:
+        binned_data[floor((item/data_max)*bins)] += 1
+    mode_idx = np.where(binned_data == np.amax(binned_data))[0]
+    mode = mode_idx*interval
+    # Subtract minimum value from every nonzero value
+    out = data - mode + 1
+    return out.clip(0)
+
+# Temporary function for shifting data by an arbitrary amount
+def offset_arbitrary(data, offset=750):
+    return (data-offset).clip(0)
+    
+# =============== Function compositions =================
+    
+def offset_divide_by_mean(data):
+    check_data(data)
+    return divide_by_mean(offset_arbitrary(data))
+
+def offset_divide_by_max(data):
+    check_data(data)
+    return divide_by_max(offset_arbitrary(data))
+
+def offset_scale_log(data):
+    check_data(data)
+    return scale_log(offset_arbitrary(data))
 
 # Helper function to check input data shape
 def check_data(data):
@@ -146,4 +185,5 @@ def check_data(data):
 # Main
 if __name__ == "__main__":
     config = parse_args()
-    normalize_dataset(config, scale_log, remove_offset)
+    
+    normalize_dataset(config)
