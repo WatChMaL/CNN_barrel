@@ -19,7 +19,7 @@ import numpy as np
 
 from io_utils.data_handling import WCH5Dataset
 from visualization_utils.notebook_utils import CSVData
-import plot_utils.plot_utils as plu
+import plot_utils.result_visualizer as rv
 
 from training_utils.doublepriorityqueue import DoublePriority
 
@@ -224,6 +224,7 @@ class Engine:
                     if(res["accuracy"]-best_val_acc > 1e-03):
                         continue_train = True
                         best_val_acc = res["accuracy"]
+                        self.save_state(curr_iter=1)
                     else:
                         continue_train = True
                     
@@ -368,9 +369,15 @@ class Engine:
             result['labels'] = np.hstack(labels)
             result['energies'] = np.hstack(energies)
             np.savez_compressed(self.config.save_path+'val_state.npz',
-                                result=result,
+                                prediction=result['prediction'],
+                                softmax=result['softmax'],
+                                loss=result['loss'],
+                                accuracy=result['accuracy'],
+                                labels=result['labels'],
+                                energies=result['energies'],
                                 data=self.config.path)
-            #self.dump_visuals(result)
+            print("Dumped result array to", self.config.save_path+'val_state.npz')
+            #rv.dump_visuals(result, self.config.save_path)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
@@ -426,37 +433,14 @@ class Engine:
               "\nTotal test acc : ", test_acc,
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
-    
-    # TODO: Make file names more descriptive
-    def dump_visuals(self, result):
-        prediction = result['prediction']
-        softmax = result['softmax']
-        print(softmax.shape)
-        loss = result['loss']
-        accuracy = result['accuracy']
-        labels = result['labels']
-        energies = result['energies']
-    
-        vis_energies = plu.convert_to_visible_energy(energies, labels)
-        
-        class_names = ['gamma', 'e', 'mu']
-        index_dict = {name:index for index, name in enumerate(class_names)}
-        
-        plu.plot_event_energy_distribution(vis_energies, labels, index_dict, save_path=self.config.save_path+"energy_distribution.eps")
-        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, 0, np.max(vis_energies), save_path=self.config.save_path+"confusion_matrix.eps")
-        
-        for i, name in enumerate(class_names):
-            plu.plot_classifier_response(softmax, labels, vis_energies, index_dict, {name:i}, save_path=self.config.save_path+"classifier_response_"+name+".eps")
-            other = class_names[(i+1)%len(class_names)]
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, 0, np.max(vis_energies), save_path=self.config.save_path+name+"_vs_"+other+".eps")
-        index_dict = {name:index for index, name in enumerate(class_names[:2])}
-        for name, i in index_dict.items():
-            plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, save_path=self.config.save_path+"signal_efficiency_"+name+".eps")
-            plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, save_path=self.config.save_path+"background_rejection_"+name+".eps")
-        
 
     def save_state(self, curr_iter=0):
-        filename = self.config.save_path+'/saved_states/'+str(self.config.model)+str(curr_iter)
+        save_dir = self.config.save_path+'saved_states/'
+        if not os.path.isdir(save_dir):
+            os.mkdir(save_dir)
+        filename = save_dir+str(self.config.model[1])+"_"+str(curr_iter)
+        if os.path.exists(filename):
+            os.remove(filename)
         # Save parameters
         # 0+1) iteration counter + optimizer state => in case we want to "continue training" later
         # 2) network weight
