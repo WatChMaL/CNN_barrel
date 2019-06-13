@@ -5,7 +5,7 @@ Author: Julian Ding
 """
 
 import numpy as np
-import os
+import os, sys
 import plot_utils.plot_utils as plu
 
 # Returns a results dictionary
@@ -16,12 +16,12 @@ def open_result(path):
 # Dumps an instance of every plot in plot_utils to save_path based on data in result
 def dump_visuals(result, save_path=''):
     save_path += '' if save_path.endswith('/') else '/'
-    prediction = result['prediction'].reshape(-1, 1)
-    softmax = result['softmax'].reshape(-1, 1)
-    loss = result['loss'].reshape(-1, 1)
-    accuracy = result['accuracy'].reshape(-1, 1)
-    labels = result['labels'].reshape(-1, 1)
-    energies = result['energies'].reshape(-1, 1)
+    prediction = result['prediction'].reshape(-1,1)
+    softmax = result['softmax'].reshape(-1,1)
+    loss = result['loss'].reshape(-1,1)
+    accuracy = result['accuracy'].reshape(-1,1)
+    labels = result['labels'].reshape(-1,1)
+    energies = result['energies'].reshape(-1,1)
 
     vis_energies = plu.convert_to_visible_energy(energies, labels)
     
@@ -40,3 +40,7 @@ def dump_visuals(result, save_path=''):
         plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"signal_efficiency_"+name+".eps")
         plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"background_rejection_"+name+".eps")
     print ("Dumped performance plots to", save_path)
+    
+#if __name__ == "main":
+#    result = open_result(sys.argv[1])
+#    dump_visuals(result, os.dirname(result['data'])+'/plt_dump')

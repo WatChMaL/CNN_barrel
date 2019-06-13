@@ -204,7 +204,9 @@ class Engine:
                 self.train_log.write()
                 # once in a while, report
                 if i==0 or (i+1)%report_interval == 0:
-                    print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']))
+                    if i != 0:
+                        print('\r', end='')
+                    print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
                     
                 # more rarely, run validation
                 if (i+1)%valid_interval == 0:
@@ -234,9 +236,11 @@ class Engine:
                 # Save on the given intervals
                 if(i+1)%save_interval == 0:
                     self.save_state(curr_iter=iteration)
-                    
-            print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']))
+            print('\r', end='')
+            print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
             
+        print('')
+        
         self.val_log.close()
         self.train_log.close()
 
@@ -283,9 +287,11 @@ class Engine:
             loss, accuracy, labels, predictions, softmaxes, energies = [],[],[],[],[],[]
             
             # Extract the event data and label from the DataLoader iterator
-            for val_data in iter(self.val_iter):
+            for i, val_data in enumerate(iter(self.val_iter)):
                 
-                sys.stdout.write("val_iterations : " + str(val_iterations) + "\n")
+                if i != 0:
+                    print('\r', end='')
+                print("val_iterations : " + str(val_iterations), end='')
                 
                 self.data, self.label = val_data[0:2]
                 self.label = self.label.long()
@@ -319,7 +325,8 @@ class Engine:
                 #print(self.label.shape)
                 
                 val_iterations += 1
-         
+        
+        print('')
         print("\nTotal val loss : ", val_loss,
               "\nTotal val acc : ", val_acc,
               "\nAvg val loss : ", val_loss/val_iterations,
@@ -366,15 +373,13 @@ class Engine:
         
         # If requested, save analysis plots
         if save_plots:
-            result['labels'] = np.hstack(labels)
-            result['energies'] = np.hstack(energies)
             np.savez_compressed(self.config.save_path+'val_state.npz',
-                                prediction=result['prediction'],
-                                softmax=result['softmax'],
-                                loss=result['loss'],
-                                accuracy=result['accuracy'],
-                                labels=result['labels'],
-                                energies=result['energies'],
+                                prediction=np.hstack(predictions),
+                                softmax=np.hstack(softmaxes),
+                                loss=np.hstack(loss),
+                                accuracy=np.hstack(accuracy),
+                                labels=np.hstack(labels),
+                                energies=np.hstack(energies),
                                 data=self.config.path)
             print("Dumped result array to", self.config.save_path+'val_state.npz')
             #rv.dump_visuals(result, self.config.save_path)
@@ -449,7 +454,7 @@ class Engine:
             'optimizer': self.optimizer.state_dict(),
             'state_dict': self.model.state_dict()
         }, filename)
-        print('Saved checkpoint as:', filename)
+        print('\tSaved checkpoint as:', filename)
         return filename
 
     def restore_state(self, weight_file):

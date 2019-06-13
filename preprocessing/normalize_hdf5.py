@@ -81,7 +81,10 @@ def normalize_dataset(config):
         time_data = event_data[block_begin:block_end,:,:,19:]
         c_acc = c_func(chrg_data, acc=c_acc, apply=False)
         t_acc = t_func(time_data, acc=t_acc, apply=False)
-        print(iblock+1, 'of', num_blocks_in_file, 'blocks parsed')
+        if iblock != 0:
+            print('\r', end='')
+        print('[', iblock+1, 'of', num_blocks_in_file, 'blocks parsed ]', end='')
+    print('')
     # Write to temp file in chunks (apply=True)
     for iblock in range(num_blocks_in_file):
         block_begin=iblock*block_size
@@ -96,8 +99,11 @@ def normalize_dataset(config):
         out_data = np.concatenate((chrg_data, time_data), axis=-1)
         # Save state to temporary h5
         temp_dset[block_begin:block_end] = out_data
-        print(iblock+1, 'of', num_blocks_in_file, 'blocks normalized')
-        
+        if iblock != 0:
+            print('\r', end='')
+        print('[', iblock+1, 'of', num_blocks_in_file, 'blocks normalized ]', end='')
+    print('')
+    
     # Write to outfile in chunks to prevent memory overflow
     for key in infile.keys():
         print('Saving key', key)
@@ -116,8 +122,11 @@ def normalize_dataset(config):
                 block_end=chunk_length
             # Write to file
             dsets[key][offset+block_begin:offset+block_end] = data[block_begin:block_end]
-            print(iblock+1, 'of', num_blocks_in_file, 'blocks written')
+            if iblock != 0:
+                print('\r', end='')
+            print('[', iblock+1, 'of', num_blocks_in_file, 'blocks written ]', end='')
         offset+=block_end
+        print('')
         
     # Delete tempfile
     temp.close()
