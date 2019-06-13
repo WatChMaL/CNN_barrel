@@ -2,6 +2,12 @@
 Script to normalize mPMT hit information in an HDF5 dataset.
 Transforms input HDF5 dataset into output HDF5 dataset (not in place).
 
+Due to the need for reading and writing in chunks but many functions requiring
+access to the entire dataset (to calculate a mean, for example), the functions
+in this module are implemented in two operation modes:
+    - accumulation (apply=False): iterates over dataset and accumulates required info
+    - application (apply=True): reiterates over dataset and applies normalization
+
 Author: Julian Ding
 """
 import os
@@ -226,7 +232,7 @@ def remove_offset_mode(data, bins=10000, acc=None, apply=False):
     
 
 # Temporary function for shifting data by an arbitrary amount
-def offset_arbitrary(data, offset=750, acc=None, apply=False):
+def offset_arbitrary(data, offset=950, acc=None, apply=False):
     check_data(data)
     if apply:
         return (data-offset).clip(0)
@@ -260,6 +266,15 @@ def offset_scale_log(data, acc=None, apply=False):
         return scale_log(offset_arbitrary(data, apply=True), apply=True)
     else:
         return identity(data)
+        
+# This function turns any global function to one applied on an event-by-event basis
+def per_event(data, func):
+    check_data(data)
+    normed_events = []
+    for event in data:
+        event_data = np.asarray(event)
+        normed_events.append(func(event_data, acc=func(event_data), apply=True))
+    return np.vstack(normed_events)
 
 # Helper function to check input data shape
 def check_data(data):

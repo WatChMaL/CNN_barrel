@@ -314,12 +314,12 @@ class Engine:
                 self.label = self.label.to("cpu")
                 
                 # Add the local result to the final result
-                loss.append(val_loss)
-                accuracy.append(val_acc)
-                labels.append(self.label)
-                predictions.append(result['prediction'])
-                softmaxes.append(result["softmax"])
-                energies.append(energy)
+                loss.extend(val_loss)
+                accuracy.extend(val_acc)
+                labels.extend(self.label)
+                predictions.extend(result['prediction'])
+                softmaxes.extend(result["softmax"])
+                energies.extend(energy)
                 
                 #print(self.data.shape)
                 #print(self.label.shape)
