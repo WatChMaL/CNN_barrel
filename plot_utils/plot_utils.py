@@ -291,9 +291,9 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
           save_path[optional]   ... Path to save the plot to, format='eps', default=None
     """
     
-    assert softmaxes.any() != None
-    assert labels.any() != None
-    assert index_dict != None
+    assert softmaxes is not None
+    assert labels is not None
+    assert index_dict  is not None
     assert softmaxes.shape[0] == labels.shape[0]
     
     # Create a mapping to extract the energies in
@@ -395,9 +395,11 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     """
     
     # Assertions to check for valid inputs
-    assert softmaxes.any() != None
-    assert labels.any() != None
-    assert energies.any() != None
+    assert softmaxes is not None
+    assert labels is not None
+    assert energies is not None
+    
+    # Need high number of bins to avoid empty values
     assert num_bins >= 100
     assert event in index_dict.keys()
     
@@ -467,13 +469,14 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
                                                       {event:index_dict[event]},
                                                       energy_lower, energy_upper,
                                                       num_bins=num_bins, show_plot=False)
-            if( values == None or bins == None ):
+            if values is None or bins is None:
                 print("""plot_utils.plot_signal_efficiency() : No events for the energy interval {0} to {1}.
                       Unable to plot.""".format(energy_lower, energy_upper))
-            
+                return None
+                
             total_true_events = np.sum(values)
             num_true_events_selected = np.sum(values[bins[:len(bins)-1] > threshold-epsilon])
-
+            
             curr_interval_efficiency = num_true_events_selected/total_true_events if total_true_events > 0 else 0
 
             if(curr_interval_efficiency == 0):
@@ -557,10 +560,13 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     """
     
     # Assertions to check for valid inputs
-    assert softmaxes.any() != None
-    assert labels.any() != None
-    assert energies.any() != None
+    assert softmaxes is not None
+    assert labels is not None
+    assert energies is not None
+    
+    # Need high number of bins to avoid empty values
     assert num_bins >= 100
+    assert event in index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
@@ -649,14 +655,16 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
                                                           energy_lower, energy_upper, 
                                                           num_bins=num_bins, show_plot=False)
                 
-                if( values == None or bins == None ):
-                    print("""plot_utils.plot_signal_efficiency() : No events for the energy interval {0} to {1}.
+                # Find the number of false events rejected
+                if values is None or bins is None:
+                    print("""plot_utils.plot_background_rejection() : No events for the energy interval {0} to {1}.
                           Unable to plot.""".format(energy_lower, energy_upper))
-
+                    return None
+                    
                 # Find the number of false events rejected
                 total_false_events = np.sum(values)
                 num_false_events_rejected = np.sum(values[bins[:len(bins)-1] < threshold])
-
+                
                 curr_interval_rejection = num_false_events_rejected/total_false_events if total_false_events > 0 else 0
 
                 if(curr_interval_rejection == 0):
@@ -743,9 +751,9 @@ def plot_training(log_path, model_name, model_color_dict, downsample_interval=10
     """
     
     # Assertions
-    assert log_paths != None
-    assert model_names != None
-    assert model_color_dict != None
+    assert log_paths is not None
+    assert model_names is not None
+    assert model_color_dict is not None
     assert len(log_paths) == len(model_names)
     assert len(model_names) == len(model_color_dict.keys())
     
