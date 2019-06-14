@@ -18,7 +18,7 @@ import time
 import numpy as np
 
 from io_utils.data_handling import WCH5Dataset
-from visualization_utils.notebook_utils import CSVData
+from plot_utils.notebook_utils import CSVData
 import plot_utils.result_visualizer as rv
 
 from training_utils.doublepriorityqueue import DoublePriority

@@ -254,7 +254,7 @@ def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dic
 
         ax.set_xlim(0,1)
 
-        plt.legend(loc="upper left", prop={"size":20}, bbox_to_anchor=(1.04,1))
+        plt.legend(loc="upper left", prop={"size":20})
         
         plt.title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
         
@@ -346,7 +346,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
         ax.set_xlabel("False Positive Rate", fontsize=20)
         ax.set_ylabel("True Positive Rate", fontsize=20)
         ax.set_title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
-        ax.legend(loc="upper right", prop={"size":20}, bbox_to_anchor=(1.04,1))
+        ax.legend(loc="upper right", prop={"size":20})
 
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
@@ -362,13 +362,15 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
 
 # Plot signal efficiency for a given event type at different energies
 def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
-                           average_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
-                           min_energy=100, max_energy=1000, num_bins=100, show_plot=False,
-                           save_path=None):
+                           avg_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
+                           avg_efficiency_colors=None, min_energy=100, max_energy=1000,
+                           num_bins=100, show_plot=False, save_path=None):
     
     """
-    plot_signal_efficiency(softmaxes, labels, energies, index_dict=None, event=None, thresholds=None,
-                           energy_interval=5, energy_min=100, energy_max=1000, num_bins=100, save_path=None)
+    plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
+                           avg_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
+                           avg_efficiency_colors=None, min_energy=100, max_energy=1000,
+                           num_bins=100, show_plot=False, save_path=None)
                            
     Purpose : Plot the signal efficiency vs energy for several thresholds
     
@@ -378,14 +380,16 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
           index_dict            ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmax arrayy
           event                 ... String identifier for the event for which to plot the signal efficiency
-          average_efficiencies  ... 1D array with the average efficiency values for which to plot the signal efficiency
-                                    vs energy plot, default=[0.2, 0.5, 0.8] 
+          avg_efficiencies      ... 1D array with the average efficiency values for which to plot the signal efficiency
+                                    vs energy plot, default=[0.2, 0.5, 0.8]
+          avg_efficiency_colors ... Average efficiencies color dictionary to use. The keys are the iterms in the
+                                    avg_efficiencies list and values are the colors to be used.
           energy_interval       ... Energy interval to be used to calculate the response curve and calculating the signal                 
-                                    efficiency, default=5
+                                    efficiency, default=25
           min_energy            ... Minimum energy for the events to consider, default=0
           max_energy            ... Maximum energy for the events to consider, default=1000
-          num_bins              ... Number of bins to use in the classifier response histogram ( should be greater than 100
-                                    to prevent 0 values
+          num_bins              ... Number of bins to use in the classifier response histogram ( 
+                                    should be greater than 100 to prevent 0 values )
           show_plot[optional]   ... Boolean to determine whether to show the plot, default=False
           save_path[optional]   ... Path to save the plot to, format='eps', default=None
     """
@@ -394,37 +398,52 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     assert softmaxes.any() != None
     assert labels.any() != None
     assert energies.any() != None
-    assert len(average_efficiencies) >= 3
     assert num_bins >= 100
+    assert event in index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
-                                                                     {"gamma":0,"e":1}, "gamma",
-                                                                      "e", 0, 1000, show_plot=False)
+                                                                               index_dict,
+                                                                               list(index_dict.keys())[0],
+                                                                               list(index_dict.keys())[1],
+                                                                               min_energy, max_energy, show_plot=False)
     
-    threshold_index_dict = {}
-
-    for tpr_value in average_efficiencies:
+    thresholds = []
+    tolerance = 0.25
+    
+    # Get the index o
+    for tpr_value in avg_efficiencies:
+        
         index_list = []
+        
         for i in range(len(tpr_1)):
             if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
                 index_list.append(i)
-        index = index_list[math.ceil(len(index_list)/2)]
-        threshold_index_dict[tpr_value] = index
+                
+        if(len(index_list) == 0):
+            lower_tpr, lower_index, upper_index, upper_tpr = 0.0, 0, 0, 1.0
+            for i in range(len(tpr_1)):
+                if(tpr_1[i] < tpr_value and tpr_1[i] > lower_tpr):
+                    lower_index = i
+                    lower_tpr = tpr_1[i]
+                if(tpr_1[i] > tpr_value):
+                    upper_index = i
+                    upper_tpr = tpr_1[i]
+                    break
+            if(upper_tpr - lower_tpr > tolerance):
+                print("""plot_utils.plot_signal_efficiency() : Unable to calculate threshold for average_efficiency =  
+                     {0}""".format(tpr_value))
+                return None
+            else:
+                thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
+                
+        else:
+            index = index_list[math.ceil(len(index_list)/2)]
+            thresholds.append(round(threshold_1[index], 2))
 
-    thresholds = []
-    for key in threshold_index_dict.keys():
-        thresholds.append(round(threshold_1[threshold_index_dict[key]], 2))
-    
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
     energy_lb = [min_energy+(energy_interval*i) for i in range(math.ceil((max_energy-min_energy)/energy_interval))]
     energy_ub = [energy_low+energy_interval for energy_low in energy_lb]
-    
-    # Local color dict
-    local_color_dict = {}
-    local_color_dict[thresholds[0]] = "green"
-    local_color_dict[thresholds[1]] = "blue"
-    local_color_dict[thresholds[2]] = "red"
     
     # Epsilon to ensure the plots are OK for low efficiency thresholds
     epsilon = 0.0001
@@ -432,7 +451,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     # Plot the signal efficiency vs energy
     fig = plt.figure(figsize=(32,18), facecolor="w")
         
-    for threshold, efficiency in zip(thresholds, average_efficiencies):
+    for threshold, efficiency in zip(thresholds, avg_efficiencies):
         
         # Values to be plotted at the end
         signal_efficiency = []
@@ -448,6 +467,9 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
                                                       {event:index_dict[event]},
                                                       energy_lower, energy_upper,
                                                       num_bins=num_bins, show_plot=False)
+            if( values == None or bins == None ):
+                print("""plot_utils.plot_signal_efficiency() : No events for the energy interval {0} to {1}.
+                      Unable to plot.""".format(energy_lower, energy_upper))
             
             total_true_events = np.sum(values)
             num_true_events_selected = np.sum(values[bins[:len(bins)-1] > threshold-epsilon])
@@ -469,8 +491,13 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
 
             label_to_use = r"Average signal efficiency = {0}, Threshold = {1:0.3f}".format(efficiency, threshold)
 
-        plt.plot(energy_values, signal_efficiency, color=local_color_dict[threshold], linewidth=2.0,
-                 marker=".", markersize=6.0, markerfacecolor=local_color_dict[threshold], label=label_to_use)
+        if(avg_efficiency_colors != None):
+            plt.plot(energy_values, signal_efficiency, color=avg_efficiency_colors[threshold], linewidth=2.0,
+                 marker=".", markersize=6.0, markerfacecolor=avg_efficiency_colors[threshold], label=label_to_use)
+        else:
+            plt.plot(energy_values, signal_efficiency, linewidth=2.0, marker=".", markersize=6.0, label=label_to_use)
+            
+        
 
     if(event is not "e"):
              title = r"Signal Efficiency vs Energy for $\{0}$ events.".format(event)
@@ -487,7 +514,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     plt.xlabel("Event Visible Energy (MeV)", fontsize=20)
     plt.ylabel("Signal Efficiency", fontsize=20)
     
-    plt.legend(prop={"size":20}, bbox_to_anchor=(1.04,1), loc="upper left")
+    plt.legend(prop={"size":20}, loc="upper left")
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
@@ -500,13 +527,13 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
         
 # Plot background rejection for a given event
 def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
-                              average_efficiencies=[0.2, 0.5, 0.8], energy_interval=5,
+                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None, energy_interval=5,
                               min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None):
     
     """
-    plot_background_rejection(softmaxes, labels, energies, index_dict=None, event=None,
-                              average_efficiencies=[0.2, 0.5, 0.8], energy_interval=5,
+    plot_background_rejection(softmaxes, labels, energies, index_dict, event,
+                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_color=None, energy_interval=5,
                               min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None)
                            
@@ -518,8 +545,10 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
           index_dict            ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmaxes array
           event                 ... String identifier for the event for which to plot the background rejection
-          average_efficiencies  ... 1D array with the average efficiency values for which to plot the signal efficiency
-                                    vs energy plot, default=[0.2, 0.5, 0.8] 
+          avg_efficiencies  ... 1D array with the average efficiency values for which to plot the signal efficiency
+                                    vs energy plot, default=[0.2, 0.5, 0.8]
+          avg_efficiency_colors ... Average efficiencies color dictionary to use. The keys are the iterms in the
+                                    avg_efficiencies list and values are the colors to be used.
           energy_interval       ... Energy interval to be used to calculate the response curve and calculating the signal                 
                                     efficiency, default=5
           min_energy            ... Minimum energy for the events to consider, default=0
@@ -532,37 +561,52 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     assert softmaxes.any() != None
     assert labels.any() != None
     assert energies.any() != None
-    assert len(average_efficiencies) >= 3
     assert num_bins >= 100
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
-                                                                     {"gamma":0,"e":1}, "gamma",
-                                                                      "e", 0, 1000, show_plot=False)
+                                                                               index_dict,
+                                                                               list(index_dict.keys())[0],
+                                                                               list(index_dict.keys())[1],
+                                                                               min_energy, max_energy, show_plot=False)
     
+    thresholds = []
     threshold_index_dict = {}
-
-    for tpr_value in average_efficiencies:
+    tolerance = 0.25
+    
+    # Get the index o
+    for tpr_value in avg_efficiencies:
+        
         index_list = []
+        
         for i in range(len(tpr_1)):
             if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
                 index_list.append(i)
-        index = index_list[math.ceil(len(index_list)/2)]
-        threshold_index_dict[tpr_value] = index
-
-    thresholds = []
-    for key in threshold_index_dict.keys():
-        thresholds.append(round(threshold_1[threshold_index_dict[key]], 2))
+                
+        if(len(index_list) == 0):
+            lower_tpr, lower_index, upper_index, upper_tpr = 0.0, 0, 0, 1.0
+            for i in range(len(tpr_1)):
+                if(tpr_1[i] < tpr_value and tpr_1[i] > lower_tpr):
+                    lower_index = i
+                    lower_tpr = tpr_1[i]
+                if(tpr_1[i] > tpr_value):
+                    upper_index = i
+                    upper_tpr = tpr_1[i]
+                    break
+            if(upper_tpr - lower_tpr > tolerance):
+                print("""plot_utils.plot_background_rejection() : Unable to calculate threshold for average
+                      efficiency = {0}""".format(tpr_value))
+                return None
+            else:
+                thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
+                
+        else:
+            index = index_list[math.ceil(len(index_list)/2)]
+            thresholds.append(round(threshold_1[index], 2))
     
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
     energy_lb = [min_energy+(energy_interval*i) for i in range(math.ceil((max_energy-min_energy)/energy_interval))]
     energy_ub = [energy_low+energy_interval for energy_low in energy_lb]
-    
-    # Local color dict
-    local_color_dict = {}
-    local_color_dict[thresholds[0]] = "green"
-    local_color_dict[thresholds[1]] = "blue"
-    local_color_dict[thresholds[2]] = "red"
     
     # Epsilon to ensure the plots are OK for low efficiency thresholds
     epsilon = 0.0001
@@ -570,7 +614,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     # Plot the background rejection vs energy
     fig = plt.figure(figsize=(32,18), facecolor="w")
     
-    for threshold, efficiency in zip(thresholds, average_efficiencies):
+    for threshold, efficiency in zip(thresholds, avg_efficiencies):
     
         # Initialize the dictionary to hold the background rejection values
         background_rejection_dict = {}
@@ -605,6 +649,10 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
                                                           {event:index_dict[event]},
                                                           energy_lower, energy_upper, 
                                                           num_bins=num_bins, show_plot=False)
+                
+                if( values == None or bins == None ):
+                    print("""plot_utils.plot_signal_efficiency() : No events for the energy interval {0} to {1}.
+                          Unable to plot.""".format(energy_lower, energy_upper))
 
                 # Find the number of false events rejected
                 total_false_events = np.sum(values)
@@ -638,8 +686,14 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
             else:
                 label_to_use = r"Average signal efficiency = {0}, Threshold = {1:0.3f}".format(efficiency, threshold)
 
-            plt.plot(energy_values, background_rejection_dict[key], color=local_color_dict[threshold], linewidth=2.0,
-                     marker=".", markersize=6.0, markerfacecolor=local_color_dict[threshold], label=label_to_use)
+            if(avg_efficiency_colors != None):
+                plt.plot(energy_values, background_rejection_dict[key], color=avg_efficiency_colors[threshold], 
+                         linewidth=2.0, marker=".", markersize=6.0, markerfacecolor=avg_efficiency_colors[threshold],
+                         label=label_to_use)
+            else:
+                plt.plot(energy_values, background_rejection_dict[key], linewidth=2.0, marker=".", markersize=6.0,
+                         label=label_to_use)
+            
         
     # Delete the total key from the color dict
     del color_dict["total"]
@@ -660,7 +714,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
              
     plt.xlabel("Event visible energy (MeV)", fontsize=20)
     plt.ylabel("Background rejection", fontsize=20)
-    plt.legend(prop={"size":20}, bbox_to_anchor=(1.04,1), loc="upper left")
+    plt.legend(prop={"size":20}, loc="upper left")
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
