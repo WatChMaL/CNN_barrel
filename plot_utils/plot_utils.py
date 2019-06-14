@@ -513,8 +513,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
              
     plt.xlabel("Event Visible Energy (MeV)", fontsize=20)
     plt.ylabel("Signal Efficiency", fontsize=20)
-    
-    plt.legend(prop={"size":20}, loc="upper left")
+    plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
@@ -714,7 +713,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
              
     plt.xlabel("Event visible energy (MeV)", fontsize=20)
     plt.ylabel("Background rejection", fontsize=20)
-    plt.legend(prop={"size":20}, loc="upper left")
+    plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)

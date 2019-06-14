@@ -34,12 +34,12 @@ def dump_visuals(result, save_path=''):
         print("Making output directory as ", save_path)
         os.mkdir(save_path)
     
-    prediction = result['prediction'].reshape(-1,1)
-    softmax = result['softmax'].reshape(-1,1)
-    loss = result['loss'].reshape(-1,1)
-    accuracy = result['accuracy'].reshape(-1,1)
-    labels = result['labels'].reshape(-1,1)
-    energies = result['energies'].reshape(-1,1)
+    prediction = result['prediction']
+    softmax = result['softmax']
+    loss = result['loss']
+    accuracy = result['accuracy']
+    labels = result['labels']
+    energies = result['energies']
 
     vis_energies = plu.convert_to_visible_energy(energies, labels)
     
@@ -55,8 +55,10 @@ def dump_visuals(result, save_path=''):
         plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, 0, np.max(vis_energies), save_path=save_path+name+"_vs_"+other+".eps")
     index_dict = {name:index for index, name in enumerate(class_names[:2])}
     for name, i in index_dict.items():
-        plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"signal_efficiency_"+name+".eps")
-        plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"background_rejection_"+name+".eps")
+        plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"signal_efficiency_"+name+".eps",
+                                   num_bins=10)
+        plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, save_path=save_path+"background_rejection_"+name+".eps",
+                                      num_bins=10)
     print ("Dumped performance plots to", save_path)
     
 if __name__ == "__main__":

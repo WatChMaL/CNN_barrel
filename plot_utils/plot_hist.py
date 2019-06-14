@@ -22,6 +22,10 @@ Y_TIME = 1e6
 # Large initialization constant for minimizers
 LARGE = 1e10
 
+# Font size for titles
+FONTSIZE = 12
+
+# Argument parsing for commandline functionality
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Normalizes data from an input HDF5 file and outputs to HDF5 file.")
@@ -38,6 +42,8 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+# Returns an array of event samples given the path to an HDF5 dataset
+# Note: sample is loaded into memory, thus may cause a memory overflow for large sample_size
 def sample(infile, sample_size):
     assert os.path.isfile(infile), "Provided input file ("+infile+") is not a valid file, aborting."
     file = h5py.File(infile)
@@ -56,12 +62,14 @@ def sample(infile, sample_size):
     
     return (sample_data, event_size)
 
+# Dump a set of histograms from a single dataset
 def plot_all(infile, outpath, sample_size, bins, show=False):
     outpath += '' if outpath.endswith('/') else '/'
     if not os.path.isdir(outpath):
         print("Making output directory for plots as", outpath)
         os.mkdir(outpath)
     sample_data, event_size = sample(infile, sample_size)
+    sample_size = min(sample_size, event_size)
     print("Successfully prepared sampling subset of", sample_size, "events.")
     
     sample_chrg = sample_data[:,:,:,:19].reshape(-1,1)
@@ -87,6 +95,7 @@ def plot_all(infile, outpath, sample_size, bins, show=False):
                      xlabel="Time", left=max(np.amin(sample_time_nonzero)-10, 0), right=np.amax(sample_time_nonzero), ylabel="log(Hits)", yscale="log",
                      top=Y_TIME, show=show)
 
+# Dump a set of histograms of multiple datasets overlaid
 def plot_overlaid(files, outpath, sample_size, bins, show=False):
     outpath += '' if outpath.endswith('/') else '/'
     if not os.path.isdir(outpath):
@@ -133,38 +142,43 @@ def plot_overlaid(files, outpath, sample_size, bins, show=False):
                        title="Log-scaled timing distributions of all normalization schemes (sample size "+str(sample_size)+" for all datasets)",
                        xlabel="Timing", left=max(min_time-10, 0), right=max_time, ylabel="log(Hits)", top=Y_TIME, yscale='log', show=show)
 
+# Helper function to create a single histogram figure
 def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
                      title=None, xlabel=None, ylabel=None, left=None, right=None, top=None, yscale=None, show=False):
     plt.figure(figure_id)
     plt.hist(sampled_data, bins, linewidth=0)
-    if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=14)
+    if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONTSIZE)
     if left is not None: plt.xlim(left=left)
     if right is not None: plt.xlim(right=right)
     if xlabel is not None: plt.xlabel(xlabel)
     if ylabel is not None: plt.ylabel(ylabel)
     if yscale is not None: plt.yscale(yscale)
+    else: plt.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
     if top is not None: plt.ylim(top=top)
     plt.savefig(outpath+title+EXT)
     print("Saved", '"'+title+'"', "to", outpath)
     if show: plt.show()
-    
+
+# Helper function to create a single histogram figure overlaid with multiple samples
 def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
                   title=None, xlabel=None, ylabel=None, left=None, right=None, top=None, yscale=None, show=False):
     plt.figure(figure_id)
     for name, dset in dsets:
         plt.hist(dset, bins, alpha=0.3, linewidth=0, label=name)
     plt.legend(loc="upper right")
-    if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=14)
+    if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONTSIZE)
     if left is not None: plt.xlim(left=left)
     if right is not None: plt.xlim(right=right)
     if xlabel is not None: plt.xlabel(xlabel)
     if ylabel is not None: plt.ylabel(ylabel)
     if yscale is not None: plt.yscale(yscale)
+    else: plt.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
     if top is not None: plt.ylim(top=top)
     plt.savefig(outpath+title+EXT)
     print("Saved", '"'+title+'"', "to", outpath)
     if show: plt.show()
 
+# Executable behaviour
 if __name__ == "__main__":
     config = parse_args()
     infile = config.input_file[0]

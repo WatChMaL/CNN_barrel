@@ -314,8 +314,8 @@ class Engine:
                 self.label = self.label.to("cpu")
                 
                 # Add the local result to the final result
-                loss.extend(val_loss)
-                accuracy.extend(val_acc)
+                loss.append(val_loss)
+                accuracy.append(val_acc)
                 labels.extend(self.label)
                 predictions.extend(result['prediction'])
                 softmaxes.extend(result["softmax"])
@@ -362,27 +362,29 @@ class Engine:
             
             print("Dumped lists of extreme events at", plot_path)
         
-        np_softmaxes = np.array(softmaxes)
-
-        np.save("labels" + str(run) + ".npy", np.hstack(labels))
-        np.save("energies" + str(run) + ".npy", np.hstack(energies))
-        np.save("predictions" + str(run) + ".npy", np.hstack(predictions))
-        np.save("softmax" + str(run) + ".npy",
-                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
-                                    np_softmaxes.shape[2]))
+#        np_softmaxes = np.array(softmaxes)
+#
+#        np.save("labels" + str(run) + ".npy", np.hstack(labels))
+#        np.save("energies" + str(run) + ".npy", np.hstack(energies))
+#        np.save("predictions" + str(run) + ".npy", np.hstack(predictions))
+#        np.save("softmax" + str(run) + ".npy",
+#                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
+#                                    np_softmaxes.shape[2]))
         
         # If requested, save analysis plots
         if save_plots:
+            plot_data_path = self.config.save_path+'val_state.npz'
             np.savez_compressed(self.config.save_path+'val_state.npz',
-                                prediction=np.hstack(predictions),
-                                softmax=np.hstack(softmaxes),
-                                loss=np.hstack(loss),
-                                accuracy=np.hstack(accuracy),
-                                labels=np.hstack(labels),
-                                energies=np.hstack(energies),
+                                prediction=np.array(predictions),
+                                softmax=np.array(softmaxes),
+                                loss=np.array(loss),
+                                accuracy=np.array(accuracy),
+                                labels=np.array(labels),
+                                energies=np.array(energies),
                                 data=self.config.path)
-            print("Dumped result array to", self.config.save_path+'val_state.npz')
-            #rv.dump_visuals(result, self.config.save_path)
+            print("Dumped result array to", plot_data_path)
+            plot_result = rv.open_result(plot_data_path)
+            rv.dump_visuals(plot_result, self.config.save_path)
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
