@@ -254,7 +254,7 @@ def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dic
 
         ax.set_xlim(0,1)
 
-        plt.legend(loc="upper left", prop={"size":20}, bbox_to_anchor=(1.04,1))
+        plt.legend(loc="upper left", prop={"size":20})
         
         plt.title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
         
@@ -346,7 +346,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
         ax.set_xlabel("False Positive Rate", fontsize=20)
         ax.set_ylabel("True Positive Rate", fontsize=20)
         ax.set_title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
-        ax.legend(loc="upper right", prop={"size":20}, bbox_to_anchor=(1.04,1))
+        ax.legend(loc="upper right", prop={"size":20})
 
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
@@ -395,7 +395,6 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     assert labels.any() != None
     assert energies.any() != None
     assert len(average_efficiencies) >= 3
-    assert num_bins >= 100
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
@@ -409,7 +408,11 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
         for i in range(len(tpr_1)):
             if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
                 index_list.append(i)
-        index = index_list[math.ceil(len(index_list)/2)]
+        middle_idx = math.ceil(len(index_list)/2)
+        try:
+            index = index_list[middle_idx]
+        except IndexError:
+            pass
         threshold_index_dict[tpr_value] = index
 
     thresholds = []
@@ -487,7 +490,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     plt.xlabel("Event Visible Energy (MeV)", fontsize=20)
     plt.ylabel("Signal Efficiency", fontsize=20)
     
-    plt.legend(prop={"size":20}, bbox_to_anchor=(1.04,1), loc="upper left")
+    plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
@@ -533,7 +536,6 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     assert labels.any() != None
     assert energies.any() != None
     assert len(average_efficiencies) >= 3
-    assert num_bins >= 100
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
@@ -547,7 +549,11 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
         for i in range(len(tpr_1)):
             if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
                 index_list.append(i)
-        index = index_list[math.ceil(len(index_list)/2)]
+        middle_idx = math.ceil(len(index_list)/2)
+        try:
+            index = index_list[middle_idx]
+        except IndexError:
+            pass
         threshold_index_dict[tpr_value] = index
 
     thresholds = []
@@ -660,7 +666,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
              
     plt.xlabel("Event visible energy (MeV)", fontsize=20)
     plt.ylabel("Background rejection", fontsize=20)
-    plt.legend(prop={"size":20}, bbox_to_anchor=(1.04,1), loc="upper left")
+    plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
