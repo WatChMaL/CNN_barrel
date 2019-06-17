@@ -8,10 +8,15 @@ from __future__ import division
 from __future__ import print_function
 import numpy as np
 import math
+import os
+import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+from scipy.stats import gaussian_kde
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, auc
 
+import plot_utils.mpmt_visual
 
 # Set the style
 plt.style.use("classic")
@@ -68,6 +73,8 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
           show_plot[optional] ... Boolean to determine whether to display the plot, default=False
           save_path[optional] ... Path to save the plot as an image, default=None
     """
+    # Assertions
+    assert label_dict is not None
     
     # Extract the event energies corresponding to given event types
     energies_dict = {}
@@ -102,8 +109,8 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
 
 
 # Function to plot a confusion matrix
-def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy, max_energy, show_plot=False,
-                          save_path=None):
+def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy=0, max_energy=1500, 
+                          show_plot=False, save_path=None):
     
     """
     plot_confusion_matrix(labels, predictions, energies, class_names, min_energy, max_energy, save_path=None)
@@ -171,25 +178,25 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
     else:
         plt.clf() # Clear the plot frame
         plt.close() # Close the opened window if any
-        
-        
+
 # Plot the classifier for a given event type for several true event types
-def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dict, min_energy=0,
-                             max_energy=1000, num_bins=100, show_plot=False, save_path=None):
+def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, event_dict, min_energy=0,
+                             max_energy=1500, num_bins=100, show_plot=False, save_path=None):
     
     """
-    plot_classifier_response(softmaxes, labels, energies, labels_dict=None, event_dict=None, min_energy=0,
+    plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, event, min_energy=0,
                              max_energy=1000, num_bins=100, show_plot=False, save_path=None)
                              
     Purpose : Plot the classifier softmax response for a given event type for several true event types
     
-    Args: softmaxes             ... 2D array of softmax output, length = sample size, dimensions = (n_samples, n_classes)
+    Args: softmaxes             ... 2D array of softmax output, length = sample size,
+                                    dimensions = (n_samples, n_classes)
           labels                ... 1D array of true labels
           energies              ... 1D array of visible event energies
-          labels_dict           ... Dictionary with the keys as event types and values as column indices in the softmax
-                                    array, default=None
-          event_dict            ... Dictionary with the key as the event type e.g. "gamma", "e", "mu" and value as the
-                                    column index in the 2-D softmax array, default=None
+          softmax_index_dict    ... Dictionary with the keys as event types and values as column 
+                                    indices in the softmax array, default=None
+          event_dict            ... Dictionary with the softmax class as the key and column indices
+                                    in the softmax array as the values
           min_energy            ... Minimum energy for the events to consider, default=0
           max_energy            ... Maximum energy for the events to consider, default=1000
           num_bins[optional]    ... Number of bins to use per histogram, default=100
@@ -200,23 +207,23 @@ def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dic
     
     assert softmaxes is not None and softmaxes.any() != None
     assert labels is not None and labels.any() != None
-    
+    assert energies is not None
     
     # Initialize the plot and corresponding parameters
     fig, ax = plt.subplots(figsize=(12,8),facecolor="w")
     ax.tick_params(axis="both", labelsize=20)
     
-    # Get the current event type from the event dict
+    # Get the softmax output class for which to plot the response
     event = list(event_dict.keys())[0]
     
-    for event_type in labels_dict.keys():
+    for event_type in softmax_index_dict.keys():
         
         label_to_use = r"$\{0}$ events".format(event_type) if event_type is not "e" else r"${0}$ events".format(event_type)
         
         # Get the softmax values for the given true event label
         label_map = [False for i in range(len(labels))]
         for i in range(len(labels)):
-            if( labels[i] == labels_dict[event_type] ):
+            if( labels[i] == softmax_index_dict[event_type] ):
                 label_map[i] = True
         
         # Get the softmax values for the given true event label
@@ -268,23 +275,23 @@ def plot_classifier_response(softmaxes, labels, energies, labels_dict, event_dic
         plt.close() # Close the opened window
         
     return values, bins, patches
-        
+
 # Plot the ROC curve for one vs another class
-def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, label_1, min_energy, max_energy,
-                              show_plot=False, save_path=None):
+def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, label_0, label_1, min_energy=0,
+                              max_energy=1500, show_plot=False, save_path=None):
     """
-    plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, label_1, min_energy, max_energy,
-                              show_plot=False, save_path=None)
+    plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, 
+                              min_energy, max_energy, show_plot=False, save_path=None)
                               
     Purpose : Plot the Reciver Operating Characteristic (ROC) curve given the softmax values and true labels
                               
     Args: softmaxes             ... 2D array of softmax output, length = sample size, dimensions = n_samples, n_classes
           labels                ... 1D array of true labels
           energies              ... 1D array of visible event energies
-          index_dict            ... Dictionary with the keys as event type (str) and values as the column indices 
+          softmax_index_dict    ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmax array
-          label_0               ... String identifying the first event type
-          label_1               ... String identifying the second event type
+          label_0               ... Event type for which to plot the ROC for
+          label_1               ... Event type for which to plot the ROC against
           min_energy            ... Minimum energy for the events to consider, default=0
           max_energy            ... Maximum energy for the events to consider, default=1000
           show_plot[optional]   ... Boolean to determine whether to show the plot, default=False
@@ -293,7 +300,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
     
     assert softmaxes is not None
     assert labels is not None
-    assert index_dict  is not None
+    assert softmax_index_dict  is not None
     assert softmaxes.shape[0] == labels.shape[0]
     
     # Create a mapping to extract the energies in
@@ -307,26 +314,36 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
     curr_labels = labels[energy_slice_map]
     
     # Extract the useful softmax and labels from the input arrays
-    softmax_0 = curr_softmax[curr_labels==index_dict[label_0]]# or 
-    labels_0 = curr_labels[curr_labels==index_dict[label_0]] #or 
+    softmax_0 = curr_softmax[curr_labels==softmax_index_dict[label_0]]# or 
+    labels_0 = curr_labels[curr_labels==softmax_index_dict[label_0]] #or 
     
-    softmax_1 = curr_softmax[curr_labels==index_dict[label_1]]
-    labels_1 = curr_labels[curr_labels==index_dict[label_1]]
+    softmax_1 = curr_softmax[curr_labels==softmax_index_dict[label_1]]
+    labels_1 = curr_labels[curr_labels==softmax_index_dict[label_1]]
     
     # Add the two arrays
     softmax = np.concatenate((softmax_0, softmax_1), axis=0)
     labels = np.concatenate((labels_0, labels_1), axis=0)
     
     # Binarize the labels
-    binary_labels_1 = label_binarize(labels, classes=[index_dict[label_0], index_dict[label_1]])
+    binary_labels_1 = label_binarize(labels, classes=[softmax_index_dict[label_0], softmax_index_dict[label_1]])
     binary_labels_0 = 1 - binary_labels_1
 
     # Compute the ROC curve and the AUC for class corresponding to label 0
-    fpr_0, tpr_0, threshold_0 = roc_curve(binary_labels_0, softmax[:,index_dict[label_0]])
+    fpr_0, tpr_0, threshold_0 = roc_curve(binary_labels_0, softmax[:,softmax_index_dict[label_0]])
+    
+    inv_fpr_0 = []
+    for i in fpr_0:
+        inv_fpr_0.append(1/i) if i != 0 else inv_fpr_0.append(1/1e-3)
+        
     roc_auc_0 = auc(fpr_0, tpr_0)
     
     # Compute the ROC curve and the AUC for class corresponding to label 1
-    fpr_1, tpr_1, threshold_1 = roc_curve(binary_labels_1, softmax[:,index_dict[label_1]])
+    fpr_1, tpr_1, threshold_1 = roc_curve(binary_labels_1, softmax[:,softmax_index_dict[label_1]])
+    
+    inv_fpr_1 = []
+    for i in fpr_1:
+        inv_fpr_1.append(1/i) if i != 0 else inv_fpr_1.append(1/1e-3)
+        
     roc_auc_1 = auc(fpr_1, tpr_1)
     
     if show_plot or save_path is not None:
@@ -334,17 +351,18 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
         fig, ax = plt.subplots(figsize=(16,9),facecolor="w")
         ax.tick_params(axis="both", labelsize=20)
 
-        ax.plot(fpr_0, tpr_0, color=color_dict[label_0],
+        ax.plot(tpr_0, inv_fpr_0, color=color_dict[label_0],
                  label=r"$\{0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0) if label_0 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0),
                  linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_0])
 
-        ax.plot(fpr_1, tpr_1, color=color_dict[label_1], 
-                 label=r"$\{0}$, AUC ${1:0.3f}$".format(label_1, roc_auc_0) if label_1 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_1, roc_auc_0),
-                 linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_1])
-
         ax.grid(True)
-        ax.set_xlabel("False Positive Rate", fontsize=20)
-        ax.set_ylabel("True Positive Rate", fontsize=20)
+        xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
+        ylabel = r"$\{0} background rejection$".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
+        
+        ax.set_xlabel(xlabel, fontsize=20) 
+        ax.set_ylabel(ylabel, fontsize=20)
+        
+        ax.set_yscale("log")
         ax.set_title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
         ax.legend(loc="upper right", prop={"size":20})
 
@@ -361,13 +379,13 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, index_dict, label_0, 
     return fpr_0, tpr_0, threshold_0, roc_auc_0, fpr_1, tpr_1, threshold_1, roc_auc_1
 
 # Plot signal efficiency for a given event type at different energies
-def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
+def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, event,
                            avg_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
                            avg_efficiency_colors=None, min_energy=100, max_energy=1000,
                            num_bins=100, show_plot=False, save_path=None):
     
     """
-    plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
+    plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, event,
                            avg_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
                            avg_efficiency_colors=None, min_energy=100, max_energy=1000,
                            num_bins=100, show_plot=False, save_path=None)
@@ -377,7 +395,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     Args: softmaxes             ... 2D array of softmax output, length = sample size, dimensions = n_samples, n_classes
           labels                ... 1D array of true labels
           energies              ... 1D array of visible event energies
-          index_dict            ... Dictionary with the keys as event type (str) and values as the column indices 
+          softmax_index_dict    ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmax arrayy
           event                 ... String identifier for the event for which to plot the signal efficiency
           avg_efficiencies      ... 1D array with the average efficiency values for which to plot the signal efficiency
@@ -401,14 +419,15 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
     
     # Need high number of bins to avoid empty values
     assert num_bins >= 100
-    assert event in index_dict.keys()
+    assert event in softmax_index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
-    _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
-                                                                               index_dict,
-                                                                               list(index_dict.keys())[0],
-                                                                               list(index_dict.keys())[1],
-                                                                               min_energy, max_energy, show_plot=False)
+    _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
+                                                                               energies,
+                                                                               softmax_index_dict,
+                                                                               min_energy,
+                                                                               max_energy,
+                                                                               show_plot=False)
     
     thresholds = []
     tolerance = 0.25
@@ -465,8 +484,8 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
         # Iterate over the energy intervals computing the efficiency
         for energy_lower, energy_upper in zip(energy_lb, energy_ub):
             values, bins, _ = plot_classifier_response(softmaxes, labels, energies,
-                                                      {event:index_dict[event]},
-                                                      {event:index_dict[event]},
+                                                      {event:softmax_index_dict[event]},
+                                                      {event:softmax_index_dict[event]},
                                                       energy_lower, energy_upper,
                                                       num_bins=num_bins, show_plot=False)
             if values is None or bins is None:
@@ -528,15 +547,15 @@ def plot_signal_efficiency(softmaxes, labels, energies, index_dict, event,
         plt.close() # Close the opened window
         
 # Plot background rejection for a given event
-def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
-                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None, energy_interval=5,
-                              min_energy=100, max_energy=1000, num_bins=100,
+def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, event,
+                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
+                              energy_interval=25, min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None):
     
     """
-    plot_background_rejection(softmaxes, labels, energies, index_dict, event,
-                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_color=None, energy_interval=5,
-                              min_energy=100, max_energy=1000, num_bins=100,
+    plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, event,
+                              avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_color=None,
+                              energy_interval=25, min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None)
                            
     Purpose : Plot the background rejection vs energy for several thresholds
@@ -544,15 +563,15 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     Args: softmaxes             ... 2D array of softmaxes output, length = sample size, dimensions = n_samples, n_classes
           labels                ... 1D array of true labels
           energies              ... 1D array of visible event energies
-          index_dict            ... Dictionary with the keys as event type (str) and values as the column indices 
+          softmax_index_dict    ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmaxes array
           event                 ... String identifier for the event for which to plot the background rejection
-          avg_efficiencies  ... 1D array with the average efficiency values for which to plot the signal efficiency
+          avg_efficiencies      ... 1D array with the average efficiency values for which to plot the signal efficiency
                                     vs energy plot, default=[0.2, 0.5, 0.8]
           avg_efficiency_colors ... Average efficiencies color dictionary to use. The keys are the iterms in the
                                     avg_efficiencies list and values are the colors to be used.
           energy_interval       ... Energy interval to be used to calculate the response curve and calculating the signal                 
-                                    efficiency, default=5
+                                    efficiency, default=25
           min_energy            ... Minimum energy for the events to consider, default=0
           max_energy            ... Maximum energy for the events to consider, default=1000
           show_plot[optional]   ... Boolean to determine whether to show the plot, default=False
@@ -566,14 +585,15 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     
     # Need high number of bins to avoid empty values
     assert num_bins >= 100
-    assert event in index_dict.keys()
+    assert event in softmax_index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
-    _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, energies,
-                                                                               index_dict,
-                                                                               list(index_dict.keys())[0],
-                                                                               list(index_dict.keys())[1],
-                                                                               min_energy, max_energy, show_plot=False)
+    _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
+                                                                               energies,
+                                                                               softmax_index_dict,
+                                                                               min_energy,
+                                                                               max_energy,
+                                                                               show_plot=False)
     
     thresholds = []
     threshold_index_dict = {}
@@ -623,7 +643,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
     
         # Initialize the dictionary to hold the background rejection values
         background_rejection_dict = {}
-        for key in index_dict.keys():
+        for key in softmax_index_dict.keys():
             if(key != event):
                 background_rejection_dict[key] = []
     
@@ -643,15 +663,15 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
 
             # Initialize the dict to pass
             if( key == "total" ):
-                pass_dict = index_dict.copy()
+                pass_dict = softmax_index_dict.copy()
                 del pass_dict[event]
             else:
-                pass_dict = {key:index_dict[key]}
+                pass_dict = {key:softmax_index_dict[key]}
 
             for energy_lower, energy_upper in zip(energy_lb, energy_ub):
 
                 values, bins, _ = plot_classifier_response(softmaxes, labels, energies, pass_dict,
-                                                          {event:index_dict[event]},
+                                                          {event:softmax_index_dict[event]},
                                                           energy_lower, energy_upper, 
                                                           num_bins=num_bins, show_plot=False)
                 
@@ -677,7 +697,7 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
                 background_rejection_dict[key].append(curr_interval_rejection)
 
                 # If the key is the last key in the dict
-                if( key == background_rejection_keys[len(background_rejection_keys)-1] ):
+                if( key == background_rejection_keys[len(background_rejection_keys)-1]):
 
                     # Add the lower and upper energy bounds
                     energy_values.append(energy_lower)
@@ -727,18 +747,101 @@ def plot_background_rejection(softmaxes, labels, energies, index_dict, event,
         plt.savefig(save_path, format='eps', dpi=300)
     else:
         plt.show()
+    
+# Plot the reconstructed vs actual events
+def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=False, save_path=None):
+    """
+    plot_actual_vs_event(actual_event=None, recon_event=None, show_plot=False, save_path=None):
+                           
+    Purpose : Plot the actual event vs event reconstructed by the VAE
+    
+    Args: actual_event        ... 3-D NumPy array with the event data, shape=(width, height, depth)
+          recon_event         ... 3-D NumPy array with the reconstruction data, shape = (width, height, depth)
+          label               ... Str with the true event label, e.g. "e", "mu", "gamma"
+          energy              ... Float value of the true energy of the event
+          show_plot[optional] ... Boolean to determine whether to show the plot, default=False
+          save_path[optional] ... Path to save the plot to, format='eps', default=None
+    """
+    
+    # Assertions
+    assert actual_event is not None
+    assert recon_event is not None
+    assert label is not None
+    assert energy is not None and energy > 0
+    assert len(actual_event.shape) == 3
+    assert len(recon_event.shape) == 3
+    
+    # Initialize the figure to plot the events
+    fig, axes = plt.subplots(2,1,figsize=(32,18))
+    plt.subplots_adjust(hspace=0.2)
+    
+    # Setup the plot
+    lognorm = LogNorm(vmax=max(np.amax(actual_event), np.amax(recon_event)), clip=True)
+    
+    # Setup the plot
+    if label is not "e":
+        sup_title = r"$\{0}$ event with true energy, $E = {1:.3f}$".format(label, energy)
+    else:
+        sup_title = r"${0}$ event with true energy, $E = {1:.3f}$".format(label, energy)
+        
+    fig.suptitle(sup_title, fontsize=30)
+    
+    # Plot the actual event
+    im_0 = axes[0].imshow(mpmt_visual.get_plot_array(actual_event), origin="upper", cmap="inferno", norm=lognorm)
+    
+    axes[0].set_title("Actual event display", fontsize=20)
+    axes[0].set_xlabel("PMT module X-position", fontsize=20)
+    axes[0].set_ylabel("PMT module Y-position", fontsize=20)
+    axes[0].grid(True, which="both", axis="both")
+    
+    ax0_cbar = fig.colorbar(im_0, extend='both', ax=axes[0])
+    ax0_cbar.set_label(r"Charge, $c$", fontsize=20)
+    
+    axes[0].tick_params(labelsize=20)
+    ax0_cbar.ax.tick_params(labelsize=20) 
+    
+    axes[0].set_xticklabels((axes[0].get_xticks()/10).astype(int))
+    axes[0].set_yticklabels((axes[0].get_yticks()/10).astype(int))
+    
+    # Plot the reconstructed event
+    im_1 = axes[1].imshow(mpmt_visual.get_plot_array(recon_event), origin="upper", cmap="inferno", norm=lognorm)
+    
+    axes[1].set_title("Reconstructed event display", fontsize=20)
+    axes[1].set_xlabel("PMT module X-position", fontsize=20)
+    axes[1].set_ylabel("PMT module Y-position", fontsize=20)
+    axes[1].grid(True, which="both", axis="both")
+    
+    ax1_cbar = fig.colorbar(im_1, extend='both', ax=axes[1])
+    ax1_cbar.set_label(r"Log charge, $c$", fontsize=20)
+    
+    axes[1].tick_params(labelsize=20)
+    ax1_cbar.ax.tick_params(labelsize=20)
+    
+    axes[1].set_xticklabels((axes[1].get_xticks()/10).astype(int))
+    axes[1].set_yticklabels((axes[1].get_yticks()/10).astype(int))
+    
+    if save_path is not None:
+        plt.savefig(save_path, format='eps', dpi=300)
+    
+    if show_plot:
+        plt.show()
+    else:
+        plt.clf() # Clear the plot frame
+        plt.close() # Close the opened window if any
         
 # Plot model performance over the training iterations
-def plot_training(log_path, model_name, model_color_dict, downsample_interval=1000, legend_loc=(0.8,0.5), show_plot=False, save_path=None):
+def plot_training(log_paths, model_names, model_color_dict, downsample_interval=None, legend_loc=(0.8,0.5), show_plot=False, save_path=None):
     """
     plot_training_loss(training_directories=None, model_names=None, show_plot=False, save_path=None)
                            
     Purpose : Plot the training loss for various models for visual comparison
     
-    Args: log_paths           ... Absolute path to the .csv log files
+    Args: log_paths           ... List contatining the absolute path to the .csv log files
                                   Type : str
-          model_names         ... String model name
+          model_names         ... List of the tring model name
                                   Type : str
+          model_color_dict    ... Dictionary with the model_names as keys and
+                                  the corresponding colors as values
           downsample_interval ... Downsample interval to smoothen the results,
                                   Type : int
           legend_loc          ... Location of where to put the legend on the plot
@@ -817,10 +920,10 @@ def plot_training(log_path, model_name, model_color_dict, downsample_interval=10
     
     # Plot the values
     for i, model_name in enumerate(model_names):
-        ax1.plot(epoch_values[i], loss_values[i], color="red",
-                 label="Loss")
-        ax2.plot(epoch_values[i], acc_values[i], color="blue",
-                 label="Accuracy")
+        ax1.plot(epoch_values[i], loss_values[i], color=model_color_dict[model_name][0],
+                 label= model_name + " loss")
+        ax2.plot(epoch_values[i], acc_values[i], color=model_color_dict[model_name][1],
+                 label= model_name + " accuracy")
         
         
     # Setup plot characteristics
@@ -835,7 +938,7 @@ def plot_training(log_path, model_name, model_color_dict, downsample_interval=10
     
     plt.grid(True)
     lgd = fig.legend(prop={"size":20}, bbox_to_anchor=legend_loc)
-    fig.suptitle("Training vs Epochs for " + model_name, fontsize=25)
+    fig.suptitle("Training vs Epochs", fontsize=25)
     
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300, bbox_extra_artists=(lgd))
