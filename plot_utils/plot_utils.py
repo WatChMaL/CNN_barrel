@@ -302,6 +302,8 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
     assert labels is not None
     assert softmax_index_dict  is not None
     assert softmaxes.shape[0] == labels.shape[0]
+    assert label_0 in softmax_index_dict.keys()
+    assert label_1 in softmax_index_dict.keys()
     
     # Create a mapping to extract the energies in
     energy_slice_map = [False for i in range(len(energies))]
@@ -357,7 +359,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
 
         ax.grid(True)
         xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
-        ylabel = r"$\{0} background rejection$".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
+        ylabel = r"$\{0}$ background rejection".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
         
         ax.set_xlabel(xlabel, fontsize=20) 
         ax.set_ylabel(ylabel, fontsize=20)
@@ -379,9 +381,9 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
     return fpr_0, tpr_0, threshold_0, roc_auc_0, fpr_1, tpr_1, threshold_1, roc_auc_1
 
 # Plot signal efficiency for a given event type at different energies
-def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, event,
-                           avg_efficiencies=[0.2, 0.5, 0.8], energy_interval=25,
-                           avg_efficiency_colors=None, min_energy=100, max_energy=1000,
+def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
+                           avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
+                           energy_interval=25, min_energy=100, max_energy=1000,
                            num_bins=100, show_plot=False, save_path=None):
     
     """
@@ -396,8 +398,9 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, even
           labels                ... 1D array of true labels
           energies              ... 1D array of visible event energies
           softmax_index_dict    ... Dictionary with the keys as event type (str) and values as the column indices 
-                                    in the np softmax arrayy
-          event                 ... String identifier for the event for which to plot the signal efficiency
+                                    in the np softmax array. Should only contain two key-value pairs.
+          label_0               ... Event type for which to plot the signal efficiency for
+          label_1               ... Event type for which to plot the signal efficiency against
           avg_efficiencies      ... 1D array with the average efficiency values for which to plot the signal efficiency
                                     vs energy plot, default=[0.2, 0.5, 0.8]
           avg_efficiency_colors ... Average efficiencies color dictionary to use. The keys are the iterms in the
@@ -419,12 +422,15 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, even
     
     # Need high number of bins to avoid empty values
     assert num_bins >= 100
-    assert event in softmax_index_dict.keys()
+    assert label_0 in softmax_index_dict.keys()
+    assert label_1 in softmax_index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
                                                                                energies,
                                                                                softmax_index_dict,
+                                                                               label_0,
+                                                                               label_1,
                                                                                min_energy,
                                                                                max_energy,
                                                                                show_plot=False)
@@ -484,8 +490,8 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, even
         # Iterate over the energy intervals computing the efficiency
         for energy_lower, energy_upper in zip(energy_lb, energy_ub):
             values, bins, _ = plot_classifier_response(softmaxes, labels, energies,
-                                                      {event:softmax_index_dict[event]},
-                                                      {event:softmax_index_dict[event]},
+                                                      {label_0:softmax_index_dict[label_0]},
+                                                      {label_0:softmax_index_dict[label_0]},
                                                       energy_lower, energy_upper,
                                                       num_bins=num_bins, show_plot=False)
             if values is None or bins is None:
@@ -521,10 +527,10 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, even
             
         
 
-    if(event is not "e"):
-             title = r"Signal Efficiency vs Energy for $\{0}$ events.".format(event)
+    if(label_0 is not "e"):
+             title = r"Signal Efficiency vs Energy for $\{0}$ events.".format(label_0)
     else:
-             title = r"Signal Efficiency vs Energy for ${0}$ events.".format(event)
+             title = r"Signal Efficiency vs Energy for ${0}$ events.".format(label_0)
              
     plt.title(title, fontsize=20)
     plt.grid(True)
@@ -547,7 +553,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, even
         plt.close() # Close the opened window
         
 # Plot background rejection for a given event
-def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, event,
+def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
                               avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
                               energy_interval=25, min_energy=100, max_energy=1000, num_bins=100,
                               show_plot=False, save_path=None):
@@ -565,7 +571,8 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, e
           energies              ... 1D array of visible event energies
           softmax_index_dict    ... Dictionary with the keys as event type (str) and values as the column indices 
                                     in the np softmaxes array
-          event                 ... String identifier for the event for which to plot the background rejection
+          label_0               ... Event type for which to plot the background rejection for
+          label_1               ... Event type for which to plot the background rejection against
           avg_efficiencies      ... 1D array with the average efficiency values for which to plot the signal efficiency
                                     vs energy plot, default=[0.2, 0.5, 0.8]
           avg_efficiency_colors ... Average efficiencies color dictionary to use. The keys are the iterms in the
@@ -585,12 +592,15 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, e
     
     # Need high number of bins to avoid empty values
     assert num_bins >= 100
-    assert event in softmax_index_dict.keys()
+    assert label_0 in softmax_index_dict.keys()
+    assert label_1 in softmax_index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
     _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
                                                                                energies,
                                                                                softmax_index_dict,
+                                                                               label_0,
+                                                                               label_1,
                                                                                min_energy,
                                                                                max_energy,
                                                                                show_plot=False)
@@ -644,7 +654,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, e
         # Initialize the dictionary to hold the background rejection values
         background_rejection_dict = {}
         for key in softmax_index_dict.keys():
-            if(key != event):
+            if(key != label_0):
                 background_rejection_dict[key] = []
     
         energy_values = []
@@ -671,7 +681,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, e
             for energy_lower, energy_upper in zip(energy_lb, energy_ub):
 
                 values, bins, _ = plot_classifier_response(softmaxes, labels, energies, pass_dict,
-                                                          {event:softmax_index_dict[event]},
+                                                          {label_0:softmax_index_dict[label_0]},
                                                           energy_lower, energy_upper, 
                                                           num_bins=num_bins, show_plot=False)
                 
@@ -725,12 +735,12 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, e
     # Delete the total key from the color dict
     del color_dict["total"]
              
-    if event is not "e" and key is not "e":
-        title = r"$\{0}$ Background rejection vs Energy for selecting $\{1}$ events.".format(key, event)
-    elif event is "e":
-        title = r"$\{0}$ Background rejection vs Energy for selecting ${1}$ events.".format(key, event)
+    if label_0 is not "e" and key is not "e":
+        title = r"$\{0}$ Background rejection vs Energy for selecting $\{1}$ events.".format(key, label_0)
+    elif label_0 is "e":
+        title = r"$\{0}$ Background rejection vs Energy for selecting ${1}$ events.".format(key, label_0)
     elif key is "e":
-        title = r"${0}$ Background rejection vs Energy for selecting $\{1}$ events.".format(key, event)
+        title = r"${0}$ Background rejection vs Energy for selecting $\{1}$ events.".format(key, label_0)
              
     plt.title(title, fontsize=20)
     plt.grid(True)
