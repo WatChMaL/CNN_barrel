@@ -465,7 +465,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
                 thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
                 
         else:
-            index = index_list[math.ceil(len(index_list)/2)]
+            index = index_list[math.floor(len(index_list)/2)]
             thresholds.append(round(threshold_1[index], 2))
 
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
@@ -636,7 +636,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
                 thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
                 
         else:
-            index = index_list[math.ceil(len(index_list)/2)]
+            index = index_list[math.floor(len(index_list)/2)]
             thresholds.append(round(threshold_1[index], 2))
     
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
