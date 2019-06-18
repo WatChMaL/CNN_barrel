@@ -35,6 +35,9 @@ FONT_LEGEND = 5
 # Names corresponding to labels
 CLASSES = ['gamma', 'e', 'mu']
 
+# Scientific notation formatting
+EPS = np.finfo(np.double).eps
+
 # Argument parsing for commandline functionality
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -93,15 +96,15 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
     if 'p' in to_plot:
         class_data = [sample_data[sample_labels == 0], sample_data[sample_labels == 1], sample_data[sample_labels == 2]]
     
-    SAMPLE_RATIO = str(sample_size)+" of "+str(event_size)
+    sample_ratio_str = str(sample_size).format(EPS)+" of "+str(event_size).format(EPS)
     
     if 'c' in to_plot:
         # Full histogram of PMT hit charges over all sampled events
-        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Charge Distribution Over All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Charge Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Charge", ylabel="Hits", show=show)
         fig_id += 1
         # Log-scaled version of above
-        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Log-Scaled Charge Distribution Over All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Log-Scaled Charge Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Charge", ylabel="log(Hits)", yscale="log", show=show)
         fig_id += 1
 
@@ -109,22 +112,22 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             charge_dsets = [(CLASSES[i], dset[:,:,:,:19].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
-                               title="Overlaid Charge Distribution of All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+                               title="Overlaid Charge Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Charge", ylabel="Hits", show=show)
             fig_id += 1
             # Log-scaled version of above
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
-                               title="Log-scaled Overlaid Charge Distribution of All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+                               title="Log-scaled Overlaid Charge Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Charge", ylabel="log(Hits)", yscale='log', show=show)
             fig_id += 1
     
     if 't' in to_plot:
         # Full histogram of PMT hit timing over all sampled events
-        plot_single_hist(sample_time, bins, outpath, fig_id, title="Timing Distribution Over All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+        plot_single_hist(sample_time, bins, outpath, fig_id, title="Timing Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Time", ylabel="Hits", show=show)
         fig_id += 1
         # Log-scaled version of above
-        plot_single_hist(sample_time, bins, outpath, fig_id, title="Log-Scaled Timing Distribution Over All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+        plot_single_hist(sample_time, bins, outpath, fig_id, title="Log-Scaled Timing Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Time", ylabel="log(Hits)", yscale="log", show=show)
         fig_id += 1
         
@@ -132,17 +135,17 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             time_dsets = [(CLASSES[i], dset[:,:,:,19:].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
-                               title="Overlaid Timing Distribution of All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+                               title="Overlaid Timing Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Time", ylabel="Hits", show=show)
             fig_id += 1
             # Log-scaled version of above
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
-                               title="Log-scaled Overlaid Timing Distribution of All Event Types (Sampling "+SAMPLE_RATIO+" events)",
+                               title="Log-scaled Overlaid Timing Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Time", ylabel="log(Hits)", yscale='log', show=show)
             fig_id += 1
 
 # Dump a set of histograms of multiple datasets overlaid
-def plot_overlaid(files, outpath, sample_size, bins, to_plot, show=False):
+def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
     outpath += '' if outpath.endswith('/') else '/'
     if not os.path.isdir(outpath):
         print("Making output directory for plots as", outpath)
@@ -170,26 +173,27 @@ def plot_overlaid(files, outpath, sample_size, bins, to_plot, show=False):
         max_time = max(np.amax(time_data), max_time)
         
         sample_size = min(sample_size, event_size)
+        size_str = str(sample_size).format(EPS)
         print("Successfully prepared sampling subset of", sample_size, "events from", filename)
         
     if 'c' in to_plot:
         # Overlaid charge histograms of normalization schemes
         plot_overlaid_hist(chrg_dsets, bins, outpath, 0,
-                           title="Charge distributions of all normalization schemes (sample size "+str(sample_size)+" for all datasets)",
+                           title="Charge distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Charge", ylabel="Hits", show=show)
         # Log-scaled version of above
         plot_overlaid_hist(chrg_dsets, bins, outpath, 1,
-                           title="Log-scaled charge distributions of all normalization schemes (sample size "+str(sample_size)+" for all datasets)",
+                           title="Log-scaled charge distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Charge", ylabel="log(Hits)", yscale='log', show=show)
     
     if 't' in to_plot:
         # Overlaid timing histograms of normalization schemes
         plot_overlaid_hist(time_dsets, bins, outpath, 2,
-                           title="Timing distributions of all normalization schemes (sample size "+str(sample_size)+" for all datasets)",
+                           title="Timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Timing", ylabel="Hits", show=show)
         # Log-scaled version of above
         plot_overlaid_hist(time_dsets, bins, outpath, 3,
-                           title="Log-scaled timing distributions of all normalization schemes (sample size "+str(sample_size)+" for all datasets)",
+                           title="Log-scaled timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Timing", ylabel="log(Hits)", yscale='log', show=show)
 
 # Helper function to create a single histogram figure
@@ -226,7 +230,7 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
     plt.figure(figure_id)
     lefts, rights, tops = [], [], []
     for name, dset in dsets:
-        histogram, edges, _ = plt.hist(dset, bins, alpha=0.3, linewidth=0, label=name)
+        histogram, edges, _ = plt.hist(dset, bins, alpha=0.7, linewidth=0, label=name)
         # Disregard zero hits
         histogram[0] = 0
         valids = np.arange(len(edges)-1)[histogram > SCALE_X]
@@ -253,11 +257,11 @@ if __name__ == "__main__":
     infile = config.input_file[0]
     outpath = config.output_path[0]
     if len(config.input_file) > 1:
-        plot_overlaid(config.input_file, outpath, config.sample_size, config.num_bins, config.to_plot,
+        plot_overlaid_dsets(config.input_file, outpath, config.sample_size, config.num_bins, config.to_plot,
                       show=(config.show_plts is not None))
     elif os.path.isdir(infile):
         dset_files = [os.path.join(infile, file) for file in os.listdir(infile) if file.endswith('.h5')]
-        plot_overlaid(dset_files, outpath, config.sample_size, config.num_bins, config.to_plot,
+        plot_overlaid_dsets(dset_files, outpath, config.sample_size, config.num_bins, config.to_plot,
                       show=(config.show_plts is not None))
     else:
         plot_all(infile, outpath, config.sample_size, config.num_bins, config.to_plot,

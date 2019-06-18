@@ -67,16 +67,15 @@ def dump_visuals(result, tasks=TASKS, save_path=''):
     if 'plot_ROC_curve_one_vs_one' in tasks:
         for i, name in enumerate(class_names):
             other = class_names[(i+1)%len(class_names)]
-            pair_dict = {name:index_dict[name], other:index_dict[other]}
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, pair_dict, 0, np.max(vis_energies), save_path=save_path+name+"_vs_"+other+".eps")
-    if 'plot_signal_efficiency' in tasks or 'plot_background_rejection' in tasks:
-        gamma_e_dict = {name:index for index, name in enumerate(class_names[:2])}
-        if 'plot_signal_efficiency' in tasks:
-            for name, i in index_dict.items():
-                plu.plot_signal_efficiency(softmax, labels, vis_energies, gamma_e_dict, name, save_path=save_path+"signal_efficiency_"+name+".eps")
-        if 'plot_background_rejection' in tasks:
-            for name, i in index_dict.items():
-                plu.plot_background_rejection(softmax, labels, vis_energies, gamma_e_dict, name, save_path=save_path+"background_rejection_"+name+".eps")
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".eps")
+    if 'plot_signal_efficiency' in tasks:
+        for name, i in index_dict.items():
+            other = class_names[(i+1)%len(class_names)]
+            plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"signal_efficiency_"+name+".eps")
+    if 'plot_background_rejection' in tasks:
+        for name, i in index_dict.items():
+            other = class_names[(i+1)%len(class_names)]
+            plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"background_rejection_"+name+".eps")
 
     print ("Dumped performance plots to", save_path)
     
