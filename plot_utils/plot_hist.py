@@ -11,12 +11,13 @@ Author: Julian Ding
 import os
 import argparse
 import numpy as np
+from math import ceil
 import matplotlib.pyplot as plt
 from textwrap import wrap
 import h5py
 
 # Available plotting tasks
-TASKS = ['c', 't', 'p', 'h']
+TASKS = ['c', 't', 'p', 'h', 'e']
 
 # File extension to save histograms as
 EXT = '.pdf'
@@ -46,12 +47,12 @@ def parse_args():
                         help="path to dataset(s) to visualize", required=True)
     parser.add_argument('--output_path', '-out', dest="output_path", type=str, nargs=1,
                         help="desired output path", required=True)
-    parser.add_argument('--sample_size', '-num', dest="sample_size", type=int, default=10000,
+    parser.add_argument('--sample_size', '-sub', dest="sample_size", type=int, default=10000,
                         help="number of events to sample from dataset", required=False)
     parser.add_argument('--num_bins', '-bin', dest='num_bins', type=int, default=1000,
                         help="number of bins to separate data into in histograms", required=False)
     parser.add_argument('--to_plot', '-plt', dest='to_plot', type=str, nargs='+', default=TASKS,
-                        help="specify data to plot: c=charge, t=time, p=overlaid particle types, h=hit frequency", required=False)
+                        help="specify data to plot: c=charge, t=time, p=overlaid particle types, h=hit frequency, e=overlay single events", required=False)
     parser.add_argument('--show_plts', '-show', dest="show_plts", type=str, default=None,
                         help="use this flag to show plots", required=False)
     args = parser.parse_args()
@@ -70,7 +71,7 @@ def sample(infile, sample_size):
     if sample_size > event_size:
         sample_size = event_size
     
-    tol = 0.01*sample_size
+    tol = ceil(0.01*sample_size)
         
     while True:
         sample_idx = np.random.randint(low=0, high=event_size-1, size=sample_size)
@@ -78,7 +79,7 @@ def sample(infile, sample_size):
         d_01 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
         d_12 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
         d_02 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 2].size)
-        if d_01 < tol and d_12 < tol and d_02 < tol:
+        if d_01 <= tol and d_12 <= tol and d_02 <= tol:
             break
         else: print("Resampling:", d_01, d_12, d_02, ">", tol)
     
@@ -102,18 +103,19 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
     
     fig_id = 0
     
-    if 'p' in to_plot:
+    if 'p' in to_plot or 'e' in to_plot:
         class_data = [sample_data[sample_labels == i] for i in range(len(CLASSES))]
     
     sample_ratio_str = str(sample_size).format(EPS)+" of "+str(event_size).format(EPS)
     
     if 'c' in to_plot:
+        title = "Charge: "
         # Full histogram of PMT hit charges over all sampled events
-        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Charge Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
+        plot_single_hist(sample_chrg, bins, outpath, fig_id, title=title+"Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Charge", ylabel="Hits", show=show)
         fig_id += 1
         # Log-scaled version of above
-        plot_single_hist(sample_chrg, bins, outpath, fig_id, title="Log-Scaled Charge Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
+        plot_single_hist(sample_chrg, bins, outpath, fig_id, title=title+"Log-Scaled Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Charge", ylabel="log(Hits)", yscale="log", show=show)
         fig_id += 1
 
@@ -121,22 +123,58 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             charge_dsets = [(CLASSES[i], dset[:,:,:,:19].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
-                               title="Overlaid Charge Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
+                               title=title+"Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Charge", ylabel="Hits", show=show)
             fig_id += 1
             # Log-scaled version of above
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
-                               title="Log-scaled Overlaid Charge Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
+                               title=title+"Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Charge", ylabel="log(Hits)", yscale='log', show=show)
             fig_id += 1
+            
+        if 'e' in to_plot:
+            # Reshape data to (events, pmts per event)
+            flat_gamma = class_data[0][:,:,:,:19].reshape(class_data[0].shape[0],-1)
+            flat_electron = class_data[1][:,:,:,:19].reshape(class_data[1].shape[0],-1)
+            flat_muon = class_data[2][:,:,:,:19].reshape(class_data[2].shape[0],-1)
+            
+            # Plot individual overlaid events of each class
+            # Gamma
+            plot_overlaid_events(flat_gamma, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Gamma Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Gamma
+            plot_overlaid_events(flat_gamma, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Gamma Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", yscale='log', show=show)
+            fig_id += 1
+            
+            # Electron
+            plot_overlaid_events(flat_electron, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Electron Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Electron
+            plot_overlaid_events(flat_electron, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Electron Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", yscale='log', show=show)
+            fig_id += 1
+            
+            # Muon
+            plot_overlaid_events(flat_muon, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Muon Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Muon
+            plot_overlaid_events(flat_muon, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Muon Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Charge", ylabel="Hits", yscale='log', show=show)
+            fig_id += 1
+            
     
     if 't' in to_plot:
+        title = "Timing: "
         # Full histogram of PMT hit timing over all sampled events
-        plot_single_hist(sample_time, bins, outpath, fig_id, title="Timing Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
+        plot_single_hist(sample_time, bins, outpath, fig_id, title=title+"Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Time", ylabel="Hits", show=show)
         fig_id += 1
         # Log-scaled version of above
-        plot_single_hist(sample_time, bins, outpath, fig_id, title="Log-Scaled Timing Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
+        plot_single_hist(sample_time, bins, outpath, fig_id, title=title+"Log-Scaled Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
                          xlabel="Time", ylabel="log(Hits)", yscale="log", show=show)
         fig_id += 1
         
@@ -144,13 +182,47 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             time_dsets = [(CLASSES[i], dset[:,:,:,19:].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
-                               title="Overlaid Timing Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
-                               xlabel="Time", ylabel="Hits", show=show)
+                               title=title+"Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
+                               xlabel=title+"Time", ylabel="Hits", show=show)
             fig_id += 1
             # Log-scaled version of above
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
-                               title="Log-scaled Overlaid Timing Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
+                               title="Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Time", ylabel="log(Hits)", yscale='log', show=show)
+            fig_id += 1
+            
+        if 'e' in to_plot:
+            # Reshape data to (events, pmts per event)
+            flat_gamma = class_data[0][:,:,:,19:].reshape(class_data[0].shape[0],-1)
+            flat_electron = class_data[1][:,:,:,19:].reshape(class_data[1].shape[0],-1)
+            flat_muon = class_data[2][:,:,:,:19:].reshape(class_data[2].shape[0],-1)
+            
+            # Plot individual overlaid events of each class
+            # Gamma
+            plot_overlaid_events(flat_gamma, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Gamma Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Gamma
+            plot_overlaid_events(flat_gamma, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Gamma Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", yscale='log', show=show)
+            fig_id += 1
+            
+            # Electron
+            plot_overlaid_events(flat_electron, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Electron Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Electron
+            plot_overlaid_events(flat_electron, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Electron Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", yscale='log', show=show)
+            fig_id += 1
+            
+            # Muon
+            plot_overlaid_events(flat_muon, bins, outpath, figure_id=fig_id, title=title+"Overlaid Individual Muon Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", show=show)
+            fig_id += 1
+            # Log-scaled Muon
+            plot_overlaid_events(flat_muon, bins, outpath, figure_id=fig_id, title=title+"Log-scaled Overlaid Individual Muon Events (Sampling "+sample_ratio_str+" events)",
+                                 xlabel="Timing", ylabel="Hits", yscale='log', show=show)
             fig_id += 1
     
     if 'h' in to_plot:
@@ -166,6 +238,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
         plot_overlaid_hist(hit_dsets, bins, outpath, fig_id, title="Log-scaled Overlaid Hit PMTs per Event Histogram (Sampling "+sample_ratio_str+" events)",
                            xlabel="Hits", ylabel="Events", yscale='log', show=show)
         fig_id += 1
+        
 
 # Dump a set of histograms of multiple datasets overlaid
 def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
@@ -219,6 +292,8 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
                            title="Log-scaled timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Timing", ylabel="log(Hits)", yscale='log', show=show)
 
+# ========================= Plotting Functions ============================
+
 # Helper function to create a single histogram figure
 def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
                      title=None, xlabel=None, ylabel=None, yscale=None, show=False):
@@ -245,6 +320,8 @@ def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
     plt.savefig(outpath+title+EXT)
     print("Saved", '"'+title+'"', "to", outpath)
     if show: plt.show()
+    
+    plt.close(fig=figure_id)
 
 # Helper function to create a single histogram figure overlaid with multiple samples
 # Requires: dsets is a list of tuples (name, 1D flat data array)
@@ -273,6 +350,35 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
     plt.savefig(outpath+title+EXT)
     print("Saved", '"'+title+'"', "to", outpath)
     if show: plt.show()
+    
+    plt.close(fig=figure_id)
+    
+# Helper function to overlay histograms of individual events onto one big histogram
+def plot_overlaid_events(flat_data, bins, outpath, figure_id=0,
+                         title=None, xlabel=None, ylabel=None, yscale=None, show=False):
+    plt.figure(figure_id)
+    lefts, rights, tops = [], [], []
+    for event in flat_data:
+        histogram, edges, _ = plt.hist(event, bins, alpha=0.1, linewidth=0, color='grey')
+        # Disregard zero hits
+        histogram[0] = 0
+        valids = np.arange(len(edges)-1)
+        lefts.append(edges[valids[0]])
+        rights.append(edges[valids[-1]])
+        tops.append(SCALE_Y*np.amax(histogram))
+        
+    if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONT_TITLE)
+    plt.xlim(left=min(lefts))
+    plt.xlim(right=max(rights))
+    if xlabel is not None: plt.xlabel(xlabel)
+    if ylabel is not None: plt.ylabel(ylabel)
+    if yscale is not None: plt.yscale(yscale)
+    plt.ylim(top=max(tops))
+    plt.savefig(outpath+title+EXT)
+    print("Saved", '"'+title+'"', "to", outpath)
+    if show: plt.show()
+    
+    plt.close(fig=figure_id)
 
 # Executable behaviour
 if __name__ == "__main__":
