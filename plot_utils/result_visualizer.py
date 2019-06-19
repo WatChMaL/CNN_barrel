@@ -77,7 +77,7 @@ def dump_visuals(result, tasks=TASKS, save_path=''):
             other = class_names[(i+1)%len(class_names)]
             plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"background_rejection_"+name+".eps")
 
-    print ("Dumped performance plots to", save_path)
+    print ("Dumped performance plots", tasks, "to", save_path)
     
 if __name__ == "__main__":
     config = parse_args()

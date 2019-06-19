@@ -255,7 +255,7 @@ def divide_by_FWHM(data, bins=10000, acc=None, apply=False):
             # Find left and right edges of FWHM in histogram
             llim = edges[0]*acc['max']/bins
             hlim = edges[-1]*acc['max']/bins
-            fwhm = hlim - llim
+            fwhm = abs(hlim - llim)
             # Divide data by FWHM
             return data/fwhm
     else:
@@ -351,11 +351,11 @@ def two_sigmoid_minus_mode_divided_by_FWHM(data, acc=None, apply=False):
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            return sigmoid(
-                    divide_by_FWHM(
-                            remove_offset_mode(data, acc=acc[0], apply=True),
-                            acc=acc[1], apply=True),
-                            acc=None, apply=True)
+            return 2*sigmoid(
+                      divide_by_FWHM(
+                              remove_offset_mode(data, acc=acc[0], apply=True),
+                              acc=acc[1], apply=True),
+                              acc=None, apply=True)
     else:
         if acc is None:
             acc = [None, None]
@@ -379,5 +379,5 @@ def check_data(data):
 # Main
 if __name__ == "__main__":
     config = parse_args()
-    assert config.chrg_norm_func[0] in globals() and config.time_norm_func[0] in globals().keys(), "Functions "+config.chrg_norm_func[0]+" and "+config.time_norm_func[0]+" are not implemented, aborting."
+    assert config.chrg_norm_func[0] in globals() and config.time_norm_func[0] in globals().keys(), "Functions "+config.chrg_norm_func[0]+" and/or "+config.time_norm_func[0]+" are not implemented, aborting."
     normalize_dataset(config)

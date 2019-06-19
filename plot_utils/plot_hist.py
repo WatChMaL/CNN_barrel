@@ -16,7 +16,7 @@ from textwrap import wrap
 import h5py
 
 # Available plotting tasks
-TASKS = ['c', 't', 'p']
+TASKS = ['c', 't', 'p', 'h']
 
 # File extension to save histograms as
 EXT = '.pdf'
@@ -50,8 +50,8 @@ def parse_args():
                         help="number of events to sample from dataset", required=False)
     parser.add_argument('--num_bins', '-bin', dest='num_bins', type=int, default=1000,
                         help="number of bins to separate data into in histograms", required=False)
-    parser.add_argument('--to_plot', '-plt', dest='to_plot', type=str, default=TASKS,
-                        help="specify data to plot: c=charge, t=time, p=overlaid particle types", required=False)
+    parser.add_argument('--to_plot', '-plt', dest='to_plot', type=str, nargs='+', default=TASKS,
+                        help="specify data to plot: c=charge, t=time, p=overlaid particle types, h=hit frequency", required=False)
     parser.add_argument('--show_plts', '-show', dest="show_plts", type=str, default=None,
                         help="use this flag to show plots", required=False)
     args = parser.parse_args()
@@ -69,11 +69,20 @@ def sample(infile, sample_size):
     event_size = labels.size
     if sample_size > event_size:
         sample_size = event_size
-        
-    sample_idx = np.random.randint(low=0, high=event_size-1, size=sample_size)
-    sample_data = np.asarray([data[i] for i in sample_idx])
-    sample_labels = np.asarray([labels[i] for i in sample_idx])
     
+    tol = 0.01*sample_size
+        
+    while True:
+        sample_idx = np.random.randint(low=0, high=event_size-1, size=sample_size)
+        sample_labels = np.asarray([labels[i] for i in sample_idx])
+        d_01 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
+        d_12 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
+        d_02 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 2].size)
+        if d_01 < tol and d_12 < tol and d_02 < tol:
+            break
+        else: print("Resampling:", d_01, d_12, d_02, ">", tol)
+    
+    sample_data = np.asarray([data[i] for i in sample_idx])
     file.close()
     
     return (sample_data, sample_labels, event_size)
@@ -94,7 +103,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
     fig_id = 0
     
     if 'p' in to_plot:
-        class_data = [sample_data[sample_labels == 0], sample_data[sample_labels == 1], sample_data[sample_labels == 2]]
+        class_data = [sample_data[sample_labels == i] for i in range(len(CLASSES))]
     
     sample_ratio_str = str(sample_size).format(EPS)+" of "+str(event_size).format(EPS)
     
@@ -143,6 +152,20 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                                title="Log-scaled Overlaid Timing Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Time", ylabel="log(Hits)", yscale='log', show=show)
             fig_id += 1
+    
+    if 'h' in to_plot:
+        # Extract vector representing the number of hit PMTs for each event in sample_data
+        hits_per_event = sample_data[:,:,:,:19].reshape(sample_data.shape[0], -1)
+        hits_data = np.asarray([np.count_nonzero(event) for event in hits_per_event])
+        hit_dsets = [(CLASSES[i], hits_data[sample_labels == i]) for i in range(len(CLASSES))]
+        # Plot overlaid histogram of different event classes
+        plot_overlaid_hist(hit_dsets, bins, outpath, fig_id, title="Overlaid Hit PMTs per Event Histogram (Sampling "+sample_ratio_str+" events)",
+                           xlabel="Hits", ylabel="Events", show=show)
+        fig_id += 1
+        # Log-scaled version of above
+        plot_overlaid_hist(hit_dsets, bins, outpath, fig_id, title="Log-scaled Overlaid Hit PMTs per Event Histogram (Sampling "+sample_ratio_str+" events)",
+                           xlabel="Hits", ylabel="Events", yscale='log', show=show)
+        fig_id += 1
 
 # Dump a set of histograms of multiple datasets overlaid
 def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
