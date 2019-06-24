@@ -37,8 +37,6 @@ BEST_FLAG = 1
 
 # Accuracy threshold to define when a model is significantly better than a previous model
 ACC_THRESHOLD = 1e-3
-# Number of batches to use in early-stopping validation (training)
-TRAIN_VAL_BATCHES = 10
 
 class Engine:
     """The training engine 
@@ -167,7 +165,7 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
-    def train(self, epochs=3.0, report_interval=10, valid_interval=100, save_interval=1000):
+    def train(self, epochs=3.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000):
         
         if len(self.dset.train_indices) == 0:
             print("No examples in training set, skipping training...")
@@ -190,7 +188,7 @@ class Engine:
         iteration = 0
         # Training loop
         while int(epoch+0.5) < epochs and continue_train:
-            print('Epoch',int(epoch+0.5),'Starting @',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print('\nEpoch',int(epoch+0.5),'Starting @',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
             # Loop over data samples and into the network forward function
             for i, data in enumerate(self.train_iter):
                 
@@ -233,7 +231,8 @@ class Engine:
                         
                         # res = self.forward(False)
                         
-                        res = self.validate(load_best=False, batches=TRAIN_VAL_BATCHES, save_plots=False)
+                        print('')
+                        res = self.validate(load_best=False, batches=valid_batches, save_plots=False)
                         self.val_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.val_log.write()
                     self.model.train()
@@ -280,7 +279,7 @@ class Engine:
         # If requested, load the best state saved so far
         if load_best:
             if self.best_state is None:
-                raise Exception("Warning: attempted to restore best state but no best state weight file was detected.")
+                print("Warning: attempted to restore best state but no best state weight file was detected.")
             else:
                 self.restore_state(self.best_state)
         
@@ -349,7 +348,6 @@ class Engine:
         
         avg_loss = val_loss/val_iterations
         avg_acc = val_acc/val_iterations
-        print('')
         print("\nTotal val loss : ", val_loss,
               "\nTotal val acc : ", val_acc,
               "\nAvg val loss : ", val_loss/val_iterations,
@@ -468,11 +466,11 @@ class Engine:
     def save_state(self, curr_iter=0):
         save_dir = self.config.save_path+STATE_DIR
         # If saving a best state, update best_state attribute
-        if curr_iter == BEST_FLAG:
-            self.best_state = save_dir
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
         filename = save_dir+str(self.config.model[1])+"_"+str(curr_iter)
+        if curr_iter == BEST_FLAG:
+            self.best_state = filename
         if os.path.exists(filename):
             os.remove(filename)
         # Save parameters
