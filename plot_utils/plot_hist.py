@@ -74,7 +74,7 @@ def sample(infile, sample_size):
     tol = ceil(0.01*sample_size)
         
     while True:
-        sample_idx = np.random.randint(low=0, high=event_size-1, size=sample_size)
+        sample_idx = np.random.choice(event_size, size=sample_size, replace=False)
         sample_labels = np.asarray([labels[i] for i in sample_idx])
         d_01 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
         d_12 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
@@ -187,7 +187,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             fig_id += 1
             # Log-scaled version of above
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
-                               title="Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
+                               title=title+"Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
                                xlabel="Time", ylabel="log(Hits)", yscale='log', show=show)
             fig_id += 1
             
@@ -298,7 +298,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
 def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
                      title=None, xlabel=None, ylabel=None, yscale=None, show=False):
     plt.figure(figure_id)
-    histogram, edges, _ = plt.hist(sampled_data, bins, linewidth=0)
+    histogram, edges, _ = plt.hist(sampled_data, bins, histtype='step', fill=False)
     # Disregard zero hits
     histogram[0] = 0
     if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONT_TITLE)
@@ -307,8 +307,6 @@ def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
     valids = np.arange(len(edges)-1)[histogram > SCALE_X]
     left = edges[valids[0]]
     right = edges[valids[-1]]
-    plt.xlim(left=left)
-    plt.xlim(right=right)
     plt.xlim(left=left)
     plt.xlim(right=right)
     
@@ -330,7 +328,7 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
     plt.figure(figure_id)
     lefts, rights, tops = [], [], []
     for name, dset in dsets:
-        histogram, edges, _ = plt.hist(dset, bins, alpha=0.7, linewidth=0, label=name)
+        histogram, edges, _ = plt.hist(dset, bins, histtype='step', fill=False, label=name)
         # Disregard zero hits
         histogram[0] = 0
         valids = np.arange(len(edges)-1)[histogram > SCALE_X]
@@ -342,6 +340,7 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
     plt.legend(loc="upper right", fontsize=FONT_LEGEND)
     plt.xlim(left=min(lefts))
     plt.xlim(right=max(rights))
+    
     if xlabel is not None: plt.xlabel(xlabel)
     if ylabel is not None: plt.ylabel(ylabel)
     if yscale is not None: plt.yscale(yscale)
@@ -359,10 +358,10 @@ def plot_overlaid_events(flat_data, bins, outpath, figure_id=0,
     plt.figure(figure_id)
     lefts, rights, tops = [], [], []
     for event in flat_data:
-        histogram, edges, _ = plt.hist(event, bins, alpha=0.1, linewidth=0, color='grey')
+        histogram, edges, _ = plt.hist(event, bins, histtype='step', linewidth=1, fill=False)
         # Disregard zero hits
         histogram[0] = 0
-        valids = np.arange(len(edges)-1)
+        valids = np.arange(len(edges)-1)[histogram > 0]
         lefts.append(edges[valids[0]])
         rights.append(edges[valids[-1]])
         tops.append(SCALE_Y*np.amax(histogram))
@@ -370,6 +369,7 @@ def plot_overlaid_events(flat_data, bins, outpath, figure_id=0,
     if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONT_TITLE)
     plt.xlim(left=min(lefts))
     plt.xlim(right=max(rights))
+
     if xlabel is not None: plt.xlabel(xlabel)
     if ylabel is not None: plt.ylabel(ylabel)
     if yscale is not None: plt.yscale(yscale)

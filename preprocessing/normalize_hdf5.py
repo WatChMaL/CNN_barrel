@@ -26,6 +26,8 @@ TEMP = 'temp.h5'
 ACC_EXCEPTION = Exception("Attempted to apply operation with null accumulator.")
 # Large number to initialize min accumulators to
 LARGE = 1e10
+# Default bin number for histograms
+BINS = 10000
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -153,21 +155,22 @@ def identity(data, acc=None, apply=False):
     return data
 
 # Function that divides every entry in data array by the (non-zero) mean of the data
-# acc = (mean of events seen, number of events seen)
+# acc = [current sum of events seen, number of events seen]
 def divide_by_mean(data, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            return data / (acc['sum']/acc['number'])
+            return data / (acc[0]/acc[1])
     else:
         # Calculate mean of all non-zero hits in chunk
-        nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+        flat_data = data.reshape(-1,1)
+        nonzero = flat_data[flat_data != 0]
         if acc is None:
-            acc = {'sum':0, 'number':0}
-        acc['sum'] += np.sum(nonzero)
-        acc['number'] += nonzero.size
+            acc = [0, 0]
+        acc[0] += np.sum(nonzero)
+        acc[1] += nonzero.size
         return acc
 
 # Function that divides every entry in a data array by the max of the data
@@ -205,34 +208,40 @@ def remove_offset_min(data, acc=None, apply=False):
         if acc is None:
             acc = LARGE
         # Find minimum nonzero value and save lowest so far
-        nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
+        flat_data = data.reshape(-1,1)
+        nonzero = flat_data[flat_data != 0]
         return min(np.amin(nonzero), acc)
     
 # Function that removes offsets in data by setting the mode (peak) non-zero hit value to 0
-def remove_offset_mode(data, bins=10000, acc=None, apply=False):
+# Accumulator: acc[0] = histogram of seen data, acc[1] = upper bound of hist range
+def remove_offset_mode(data, bins=BINS, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            mode_idx = np.where(acc['hist'] == np.amax(acc['hist']))[0]
-            mode = mode_idx*acc['max']/bins
+            mode_idx = np.arange(acc[0].size)[acc[0] == np.amax(acc[0])][0]
+            mode = mode_idx*acc[1]/bins
             # Subtract minimum value from every nonzero value
             return data - mode
     else:
         # Find mode non-zero hit value by binning data and selecting highest-frequency bin
-        nonzero = np.asarray([hit for hit in data.reshape(-1,1) if hit != 0])
-        data_max = np.amax(nonzero)
-        flat_data = nonzero.reshape(-1,1)
+        flat_data = data.reshape(-1,1)
+        nonzero = flat_data[flat_data != 0]
         if acc is None:
-            acc = {'hist': np.zeros((bins+1, 1)), 'max': 0}
-        for item in flat_data:
-            acc['hist'][floor((item/data_max)*bins)] += 1
-        acc['max'] = max(acc['max'], data_max)
+            acc = [None, None]
+        # Set upper bound on range if unset
+        if acc[1] is None:
+           acc[1] = 2*np.amax(nonzero)
+        # Append to histogram
+        if acc[0] is None:
+            acc[0] = np.histogram(nonzero, bins=bins, range=(0, acc[1]))[0]
+        else:
+            acc[0] += np.histogram(nonzero, bins=bins, range=(0, acc[1]))[0]
         return acc
 
 # Function that removes offsets in data by setting the mode (peak) non-zero hit value to 0 (clips hits < 0 to 0)
-def remove_offset_mode_clip(data, bins=10000, acc=None, apply=False):
+def remove_offset_mode_clip(data, bins=BINS, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
@@ -244,35 +253,43 @@ def remove_offset_mode_clip(data, bins=10000, acc=None, apply=False):
         return remove_offset_mode(data, bins=bins, acc=acc, apply=False)
     
 # Function that finds FWHM of data and divides every data point by FWHM (assumes data is roughly one large peak)
-def divide_by_FWHM(data, bins=10000, acc=None, apply=False):
+def divide_by_FWHM(data, bins=BINS, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            max_freq = np.amax(acc['hist'])
-            edges = np.where(acc['hist'] >= max_freq)
+            half_max = np.amax(acc[0])/2
+            edges = np.arange(acc[0].size)[acc[0] >= half_max]
             # Find left and right edges of FWHM in histogram
-            llim = edges[0]*acc['max']/bins
-            hlim = edges[-1]*acc['max']/bins
+            llim = edges[0]*acc[1]/bins
+            hlim = edges[-1]*acc[1]/bins
             fwhm = abs(hlim - llim)
             # Divide data by FWHM
             return data/fwhm
     else:
+        # Same accumulator use as remove_offset_mode
+        return remove_offset_mode(data, bins=bins, acc=acc, apply=False)
+    
+# Function that finds the FWHM of the log plot of data and divides every point by this "log FWHM"
+# (assumes data is roughly one large peak)
+def divide_by_log_FWHM(data, bins=BINS, acc=None, apply=False):
+    check_data(data)
+    if apply:
         if acc is None:
-            acc = {'hist': np.zeros((bins+1, 1)), 'max': 0, 'min': LARGE}
-        # Bin data into histogram
-        data_max = np.amax(data)
-        data_min = np.amin(data)
-        acc['max'] = max(acc['max'], data_max)
-        acc['min'] = min(acc['min'], data_min)
-        data_range = acc['max'] - acc['min']
-        flat_data = data.reshape(-1,1)
-        for item in flat_data:
-            acc['hist'][floor(((item-data_min)/data_range)*bins)] += 1
-        # Zero accumulation of unhit PMTs
-        acc['hist'][0] = 0
-        return acc
+            raise ACC_EXCEPTION
+        else:
+            half_max_log = np.log(np.amax(acc[0]))/2
+            edges = np.arange(acc[0].size)[acc[0] >= half_max_log]
+            # Find left and right edges of FWHM in histogram
+            llim = edges[0]*acc[1]/bins
+            hlim = edges[-1]*acc[1]/bins
+            fwhm = abs(hlim - llim)
+            # Divide data by FWHM
+            return data/fwhm
+    else:
+        # Same accumulator use as remove_offset_mode
+        return remove_offset_mode(data, bins=bins, acc=acc, apply=False)
 
 # Function that applies the transformation: f(x) = tanh(x) + 1
 def tanh_plus_one(data, acc=None, apply=False):
@@ -333,16 +350,30 @@ def tanh_minus_mode_divided_by_FWHM(data, acc=None, apply=False):
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            return tanh_plus_one(
-                    divide_by_FWHM(
-                            remove_offset_mode(data, acc=acc[0], apply=True),
-                            acc=acc[1], apply=True),
-                            acc=None, apply=True)
+            x_minus_mode = remove_offset_mode(data, acc=acc, apply=apply)
+            del data
+            x_minus_mode_divide_FWHM = divide_by_FWHM(x_minus_mode, acc=acc, apply=apply)
+            del x_minus_mode
+            return tanh_plus_one(x_minus_mode_divide_FWHM, apply=apply)
     else:
+        # Accumulator for remove_offset_mode is the same as for divide_by_FWHM
+        return remove_offset_mode(data, acc=acc, apply=False)
+
+# Applies the transformation: tanh((x-mode_x)/log_FWHM) + 1
+def tanh_minus_mode_divided_by_log_FWHM(data, acc=None, apply=False):
+    check_data(data)
+    if apply:
         if acc is None:
-            acc = [None, None]
-        # Accumulator is list: acc[0] is accumulator for remove_offset_mode, acc[1] is accumulator for divide_by_FWHM
-        return [remove_offset_mode(data, acc=acc[0]), divide_by_FWHM(data, acc=acc[1])]
+            raise ACC_EXCEPTION
+        else:
+            x_minus_mode = remove_offset_mode(data, acc=acc, apply=apply)
+            del data
+            x_minus_mode_divide_FWHM = divide_by_log_FWHM(x_minus_mode, acc=acc, apply=apply)
+            del x_minus_mode
+            return tanh_plus_one(x_minus_mode_divide_FWHM, apply=apply)
+    else:
+        # Accumulator for remove_offset_mode is the same as for divide_by_log_FWHM
+        return remove_offset_mode(data, acc=acc, apply=False)
 
 # Applies the transformation: 2*sigmoid((x-mode_x)/FWHM)
 def two_sigmoid_minus_mode_divided_by_FWHM(data, acc=None, apply=False):
@@ -351,16 +382,30 @@ def two_sigmoid_minus_mode_divided_by_FWHM(data, acc=None, apply=False):
         if acc is None:
             raise ACC_EXCEPTION
         else:
-            return 2*sigmoid(
-                      divide_by_FWHM(
-                              remove_offset_mode(data, acc=acc[0], apply=True),
-                              acc=acc[1], apply=True),
-                              acc=None, apply=True)
+            x_minus_mode = remove_offset_mode(data, acc=acc, apply=apply)
+            del data
+            x_minus_mode_divide_FWHM = divide_by_FWHM(x_minus_mode, acc=acc, apply=apply)
+            del x_minus_mode
+            return 2*sigmoid(x_minus_mode_divide_FWHM, apply=apply)
     else:
+        # Accumulator for remove_offset_mode is the same as for divide_by_FWHM
+        return remove_offset_mode(data, acc=acc, apply=False)
+
+# Applies the transformation: 2*sigmoid((x-mode_x)/log_FWHM)
+def two_sigmoid_minus_mode_divided_by_log_FWHM(data, acc=None, apply=False):
+    check_data(data)
+    if apply:
         if acc is None:
-            acc = [None, None]
-        # Accumulator is list: acc[0] is accumulator for remove_offset_mode, acc[1] is accumulator for divide_by_FWHM
-        return [remove_offset_mode(data, acc=acc[0]), divide_by_FWHM(data, acc=acc[1])]
+            raise ACC_EXCEPTION
+        else:
+            x_minus_mode = remove_offset_mode(data, acc=acc, apply=apply)
+            del data
+            x_minus_mode_divide_FWHM = divide_by_log_FWHM(x_minus_mode, acc=acc, apply=apply)
+            del x_minus_mode
+            return 2*sigmoid(x_minus_mode_divide_FWHM, apply=apply)
+    else:
+        # Accumulator for remove_offset_mode is the same as for divide_by_log_FWHM
+        return remove_offset_mode(data, acc=acc, apply=False)
         
 # This function turns any global function to one applied on an event-by-event basis
 def per_event(data, func):

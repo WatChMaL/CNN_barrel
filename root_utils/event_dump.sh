@@ -1,3 +1,4 @@
+# !/bin/bash
 # event_dump -- A shell script to replicate the functionality of event_dump.py
 #               by iteratively calling event_dump_one.py while circumventing the
 #               memory leak in event_dump.py
