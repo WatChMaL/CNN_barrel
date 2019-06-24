@@ -253,7 +253,7 @@ def remove_offset_mode_clip(data, bins=BINS, acc=None, apply=False):
         return remove_offset_mode(data, bins=bins, acc=acc, apply=False)
     
 # Function that finds FWHM of data and divides every data point by FWHM (assumes data is roughly one large peak)
-def divide_by_FWHM(data, bins=BINS, acc=None, apply=False):
+def divide_by_FWHM(data, scale=1, bins=BINS, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
@@ -266,14 +266,14 @@ def divide_by_FWHM(data, bins=BINS, acc=None, apply=False):
             hlim = edges[-1]*acc[1]/bins
             fwhm = abs(hlim - llim)
             # Divide data by FWHM
-            return data/fwhm
+            return data/(scale*fwhm)
     else:
         # Same accumulator use as remove_offset_mode
         return remove_offset_mode(data, bins=bins, acc=acc, apply=False)
     
 # Function that finds the FWHM of the log plot of data and divides every point by this "log FWHM"
 # (assumes data is roughly one large peak)
-def divide_by_log_FWHM(data, bins=BINS, acc=None, apply=False):
+def divide_by_log_FWHM(data, scale=0.02, bins=BINS, acc=None, apply=False):
     check_data(data)
     if apply:
         if acc is None:
@@ -286,7 +286,7 @@ def divide_by_log_FWHM(data, bins=BINS, acc=None, apply=False):
             hlim = edges[-1]*acc[1]/bins
             fwhm = abs(hlim - llim)
             # Divide data by FWHM
-            return data/fwhm
+            return data/(scale*fwhm)
     else:
         # Same accumulator use as remove_offset_mode
         return remove_offset_mode(data, bins=bins, acc=acc, apply=False)

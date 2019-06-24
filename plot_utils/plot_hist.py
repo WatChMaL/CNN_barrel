@@ -72,16 +72,23 @@ def sample(infile, sample_size):
         sample_size = event_size
     
     tol = ceil(0.01*sample_size)
-        
-    while True:
+    
+    _, counts = np.unique(labels, return_counts=True)
+    if counts.size == 3 and all(c >= (sample_size//3) for c in counts):
+        while True:
+            sample_idx = np.random.choice(event_size, size=sample_size, replace=False)
+            sample_labels = np.asarray([labels[i] for i in sample_idx])
+            d_01 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
+            d_12 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
+            d_02 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 2].size)
+            if d_01 <= tol and d_12 <= tol and d_02 <= tol:
+                break
+            else: print("Resampling:", d_01, d_12, d_02, ">", tol)
+    else:
+        print("Warning: uneven class distribution detected in dataset", {CLASSES[i] : counts[i] for i in range(counts.size)},
+                                                                   "\n...Performing completely random sampling")
         sample_idx = np.random.choice(event_size, size=sample_size, replace=False)
         sample_labels = np.asarray([labels[i] for i in sample_idx])
-        d_01 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
-        d_12 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 1].size)
-        d_02 = abs(sample_labels[sample_labels == 0].size - sample_labels[sample_labels == 2].size)
-        if d_01 <= tol and d_12 <= tol and d_02 <= tol:
-            break
-        else: print("Resampling:", d_01, d_12, d_02, ">", tol)
     
     sample_data = np.asarray([data[i] for i in sample_idx])
     file.close()

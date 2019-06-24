@@ -37,6 +37,8 @@ BEST_FLAG = 1
 
 # Accuracy threshold to define when a model is significantly better than a previous model
 ACC_THRESHOLD = 1e-3
+# Number of batches to use in early-stopping validation (training)
+TRAIN_VAL_BATCHES = 10
 
 class Engine:
     """The training engine 
@@ -231,7 +233,7 @@ class Engine:
                         
                         # res = self.forward(False)
                         
-                        res = self.validate(load_best=False, save_plots=False)
+                        res = self.validate(load_best=False, batches=TRAIN_VAL_BATCHES, save_plots=False)
                         self.val_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.val_log.write()
                     self.model.train()
@@ -257,7 +259,7 @@ class Engine:
 
     # Function to test the model performance on the validation
     # dataset ( returns loss, acc, confusion matrix )
-    def validate(self, load_best=True, plt_worst=0, plt_best=0, save_plots=True):
+    def validate(self, load_best=True, batches=None, plt_worst=0, plt_best=0, save_plots=True):
         r"""Test the trained model on the validation set.
         
         Parameters: None
@@ -308,6 +310,10 @@ class Engine:
                     print('\r', end='')
                 print("val_iterations : " + str(val_iterations), end='')
                 
+                # Stop after specified number of batches
+                if batches is not None and i >= batches:
+                    break
+                
                 self.data, self.label = val_data[0:2]
                 self.label = self.label.long()
                 
@@ -341,6 +347,8 @@ class Engine:
                 
                 val_iterations += 1
         
+        avg_loss = val_loss/val_iterations
+        avg_acc = val_acc/val_iterations
         print('')
         print("\nTotal val loss : ", val_loss,
               "\nTotal val acc : ", val_acc,
@@ -401,7 +409,7 @@ class Engine:
             plot_result = rv.open_result(plot_data_path)
             rv.dump_visuals(plot_result, self.config.save_path)
             
-        return result
+        return {'loss': avg_loss, 'accuracy': avg_acc}
             
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
