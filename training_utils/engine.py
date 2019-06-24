@@ -23,9 +23,20 @@ import plot_utils.result_visualizer as rv
 
 from training_utils.doublepriorityqueue import DoublePriority
 
-GAMMA, ELECTRON, MUON = 0, 1, 2
+# Directory of file containing ordered list of ROOT file directories for traceback
 ROOT_DUMP = 'ROOTS.txt'
+# Directory containing saved states
+STATE_DIR = 'saved_states/'
+
+# Names and labels corresponding to particle classes
+GAMMA, ELECTRON, MUON = 0, 1, 2
 EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
+
+# Flag to distinguish best-so-far save state
+BEST_FLAG = 1
+
+# Accuracy threshold to define when a model is significantly better than a previous model
+ACC_THRESHOLD = 1e-3
 
 class Engine:
     """The training engine 
@@ -211,24 +222,24 @@ class Engine:
                 # more rarely, run validation
                 if (i+1)%valid_interval == 0:
                     with torch.no_grad():
-                        self.model.eval()
-                        val_data = next(iter(self.val_iter))
+                        # self.model.eval()
+                        # val_data = next(iter(self.val_iter))
                         
-                        # Data and label
-                        self.data = val_data[0]
-                        self.label = val_data[1].long()
+                        ## Data and label
+                        # self.data = val_data[0]
+                        # self.label = val_data[1].long()
                         
-                        res = self.forward(False)
+                        # res = self.forward(False)
+                        
+                        res = self.validate(load_best=False, save_plots=False)
                         self.val_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.val_log.write()
                     self.model.train()
-                    
-                    if(res["accuracy"]-best_val_acc > 1e-03):
-                        continue_train = True
+                    continue_train = True
+                    # Save best-so-far training state
+                    if(res["accuracy"]-best_val_acc > ACC_THRESHOLD):
                         best_val_acc = res["accuracy"]
-                        self.save_state(curr_iter=1)
-                    else:
-                        continue_train = True
+                        self.save_state(curr_iter=BEST_FLAG)
                     
                 if epoch >= epochs:
                     break
@@ -246,7 +257,7 @@ class Engine:
 
     # Function to test the model performance on the validation
     # dataset ( returns loss, acc, confusion matrix )
-    def validate(self, plt_worst=0, plt_best=0, save_plots=True):
+    def validate(self, load_best=True, plt_worst=0, plt_best=0, save_plots=True):
         r"""Test the trained model on the validation set.
         
         Parameters: None
@@ -264,8 +275,12 @@ class Engine:
             print("No examples in validation set, skipping validation...")
             return
         
-        # Run number
-        run = 8
+        # If requested, load the best state saved so far
+        if load_best:
+            if self.best_state is None:
+                raise Exception("Warning: attempted to restore best state but no best state weight file was detected.")
+            else:
+                self.restore_state(self.best_state)
         
         # Variables to output at the end
         val_loss = 0.0
@@ -386,9 +401,10 @@ class Engine:
             plot_result = rv.open_result(plot_data_path)
             rv.dump_visuals(plot_result, self.config.save_path)
             
+        return result
+            
     # Function to test the model performance on the test
     # dataset ( returns loss, acc, confusion matrix )
-    
     def test(self):
         r"""Test the trained model on the test dataset.
         
@@ -442,7 +458,10 @@ class Engine:
               "\nAvg test acc : ", test_acc/test_iterations)
 
     def save_state(self, curr_iter=0):
-        save_dir = self.config.save_path+'saved_states/'
+        save_dir = self.config.save_path+STATE_DIR
+        # If saving a best state, update best_state attribute
+        if curr_iter == BEST_FLAG:
+            self.best_state = save_dir
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
         filename = save_dir+str(self.config.model[1])+"_"+str(curr_iter)
