@@ -33,7 +33,7 @@ GAMMA, ELECTRON, MUON = 0, 1, 2
 EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
 
 # Flag to distinguish best-so-far save state
-BEST_FLAG = 1
+BEST_FLAG = 1337
 
 # Accuracy threshold to define when a model is significantly better than a previous model
 ACC_THRESHOLD = 1e-3
@@ -127,6 +127,7 @@ class Engine:
             os.makedirs(self.dirpath,exist_ok=True)
 
         self.config=config
+        self.state_dir = self.config.save_path+STATE_DIR
 
 
     def forward(self,train=True):
@@ -253,6 +254,9 @@ class Engine:
             
         print('')
         
+        # Dump training log visualization
+        rv.dump_training_visuals(self.train_log.name, tasks=['plot_training'], save_path=self.config.save_path)
+        
         self.val_log.close()
         self.train_log.close()
 
@@ -278,10 +282,11 @@ class Engine:
         
         # If requested, load the best state saved so far
         if load_best:
-            if self.best_state is None:
-                print("Warning: attempted to restore best state but no best state weight file was detected.")
+            candidates = [os.path.join(self.state_dir, name) for name in os.listdir(self.state_dir) if name.endswith(str(BEST_FLAG))]
+            if len(candidates) > 0:
+                self.restore_state(candidates[0])
             else:
-                self.restore_state(self.best_state)
+                print("Warning: attempted to restore best state but no best state weight file was detected.")
         
         # Variables to output at the end
         val_loss = 0.0
@@ -405,7 +410,7 @@ class Engine:
                                 data=self.config.path)
             print("Dumped result array to", plot_data_path)
             plot_result = rv.open_result(plot_data_path)
-            rv.dump_visuals(plot_result, self.config.save_path)
+            rv.dump_visuals(plot_result, tasks=['plot_training'], save_path=self.config.save_path)
             
         return {'loss': avg_loss, 'accuracy': avg_acc}
             
@@ -464,13 +469,10 @@ class Engine:
               "\nAvg test acc : ", test_acc/test_iterations)
 
     def save_state(self, curr_iter=0):
-        save_dir = self.config.save_path+STATE_DIR
         # If saving a best state, update best_state attribute
-        if not os.path.isdir(save_dir):
-            os.mkdir(save_dir)
-        filename = save_dir+str(self.config.model[1])+"_"+str(curr_iter)
-        if curr_iter == BEST_FLAG:
-            self.best_state = filename
+        if not os.path.isdir(self.state_dir):
+            os.mkdir(self.state_dir)
+        filename = self.state_dir+str(self.config.model[1])+"_"+str(curr_iter)
         if os.path.exists(filename):
             os.remove(filename)
         # Save parameters
