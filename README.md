@@ -13,13 +13,13 @@ There is an extensive list of flags which can be used to tune the training engin
 - `-pms #space-delimited list of named arguments` specifies a list of arguments to pass to the CNN constructor. Make sure the arguments are valid for the selected constructor. A list of arguments taken by each constructor is printed on the terminal for convenience. The config option for this flag is `params`.
 - `-dev #cpu/gpu` sets the engine to offload work to the CPU or GPU. If GPU is selected, you must also specify a list of GPUs. The config option for this flag is `device`.
 - `-gpu #space-delimited list of gpus (ints)` gives the engine a list of GPUs to train on. If no GPUs are given, the training engine defaults to running on the CPU. The config option for this flag is `gpu_list`.
-- `-do #train #test #val` instructs the engine to run training, testing, and validation tasks. The engine can run any subset of these tasks and runs them all by default. The config option for this flag is `tasks`.
+- `-do #train #test #val #plot` instructs the engine to run training, testing, validation, and plot visualization tasks. The engine can run any subset of these tasks and runs them all by default. The config option for this flag is `tasks`. Note that if `plot` is the only specified task, the engine will use the `save_path` parameter as the directory where it will look for data to plot. In this case, if `save_path` does not exist or is empty, the program will exit.
 - `-wst #integer` instructs the engine to dump a list of root file paths and indices identifying the *n* worst-identified events in the input dataset during validation. This dumps to a plain-text file in the `save_path` directory. By default this is set to `0`. The config option for this flag is `worst`.
 - `-bst #integer` instructs the engine to dump a list of root file paths and indices identifying the *n* best-identified events in the input dataset during validation. This dumps to the same directory as `worst`. The config option for this flag is `best`.
 
 ### Data Handling
 See the wiki page on ROOT file conversion for the conversion pathway from ROOT to .npz to HDF5.
-- `-pat #path` specifies the path to the labeled dataset which the engine will train, test, and validate on. HDF5 is the only supported data format at the moment. The config option for this flag is `path`.
+- `-pat #path` specifies the path to the labeled dataset which the engine will train, test, and validate on. HDF5 is the only supported data format at the moment. The config option for this flag is `path`. Note that if this flag is not specified, only the `plot` task will be able to execute.
 - `-roo #ROOT file list (ROOTS.txt)` specifies the location of the text file that contains the absolute paths to the original ROOT files used to generate the dataset in use. This flag is usually unnecessary since `ROOTS.txt` is placed in the same directory as the dataset by default. The config option for this flag is `root`.
 - `-sub #integer` specifies a subset of the dataset located at `path` to use, which can be useful for making faster training runs. By default, all of the data is used. The config option for this flag is `subset`.
 - `-shf #True/False` specifies whether or not to shuffle the contents of the input dataset. By default this is set to `True`. The config option for this flag is `shuffle`.
@@ -31,7 +31,7 @@ See the wiki page on ROOT file conversion for the conversion pathway from ROOT t
 - `-vlb #integer` specifies the batch size during validation. By default this is set to `1000`. The config option for this flag is `batch_size_val`.
 - `-tsb #integer` specifies the batch size during testing. By default this is set to `1000`. The config option for this flag is `batch_size_test`.
 - Note: the batch size should never exceed the dataset size.
-- `-sap #path` specifies the directory into which to save the training engine output data. This directory will be located inside `USER/` and has a default name of `save_path`. The config option for this flag is `save_path`.
+- `-sap #path` specifies the directory into which to save the training engine output data. This directory will be located inside `USER/` and has a default name of `save_path`. The config option for this flag is `save_path`. This directory is used as the target directory within which to search for plotting data.
 - `-dsc #description` specifies a subdirectory under `save_path` to save data from a particular run. By default this is set to `data_description`. The config option for this flag is `data_description`.
 - `-ret #state file` specifies the path to a state file from which to restore the weights in the neural net. By default the state is not loaded. The config option for this flag is `restore_state`.
 

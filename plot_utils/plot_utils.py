@@ -22,7 +22,7 @@ import plot_utils.mpmt_visual as mpmt_visual
 plt.style.use("classic")
 
 # Fix the colour scheme for each particle type
-color_dict = {"gamma":"r", "e":"b", "mu":"g"}
+color_dict = {"gamma":"red", "e":"blue", "mu":"black"}
 
 # Function to convert from the true particle energies to visible energies
 def convert_to_visible_energy(energies, labels):
@@ -144,7 +144,7 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
         assert max_value < num_labels
         mat,_,_,im = ax.hist2d(predictions, labels,
                                bins=(num_labels,num_labels),
-                               range=((-0.5,num_labels-0.5),(-0.5,num_labels-0.5)),cmap=plt.cm.Blues)
+                               range=((-0.5,num_labels-0.5),(0,num_labels-0.5)),cmap=plt.cm.Blues)
 
         # Normalize the confusion matrix
         mat = mat.astype("float") / mat.sum(axis=0)[:, np.newaxis]
@@ -355,8 +355,17 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
         ax.plot(tpr_0, inv_fpr_0, color=color_dict[label_0],
                  label=r"$\{0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0) if label_0 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0),
                  linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_0])
+        
+        # Show coords of individual points near x = 0.2, 0.5, 0.8
+        todo = {0.2: True, 0.5: True, 0.8: True}
+        for xy in zip(tpr_0, inv_fpr_0):
+            xy = (round(xy[0], 2), round(xy[1], 2))
+            for point in todo.keys():
+                if xy[0] >= point and todo[point]:
+                    ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+                    todo[point] = False
 
-        ax.grid(True)
+        ax.grid(True, which='both')
         xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
         ylabel = r"$\{0}$ background rejection".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
         
@@ -842,13 +851,15 @@ def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=Fal
     plt.close() # Close the opened window if any
         
 # Plot model performance over the training iterations
-def plot_training(log_paths, model_names, model_color_dict, downsample_interval=None, legend_loc=(0.8,0.5), show_plot=False, save_path=None):
+def plot_training(log_paths, model_names, model_color_dict, state_paths=[], downsample_interval=None, legend_loc=(0,0.8), show_plot=False, save_path=None):
     """
     plot_training_loss(training_directories=None, model_names=None, show_plot=False, save_path=None)
                            
     Purpose : Plot the training loss for various models for visual comparison
     
-    Args: log_paths           ... List contatining the absolute path to the .csv log files
+    Args: log_paths           ... List containing the absolute path to the .csv log files containing training info
+                                  Type : str
+          state_paths         ... List containing the absolute path to the .csv log files containing best state info
                                   Type : str
           model_names         ... List of the tring model name
                                   Type : str
@@ -926,9 +937,23 @@ def plot_training(log_paths, model_names, model_color_dict, downsample_interval=
         else:
             print("Error. log path {0} does not exist".format(log_path))
             
+    # Extract values stored in best state files
+    state_log_epochs = []
+    state_log_losses = []
+    state_log_acc = []
+    for state_path in state_paths:
+        if(os.path.exists(state_path)):
+            # No downsampling needed here
+            state_df = pd.read_csv(state_path, usecols=["epoch", "loss", "accuracy"])
+            state_log_epochs.append(state_df["epoch"].values)
+            state_log_losses.append(state_df["loss"].values)
+            state_log_acc.append(state_df["accuracy"].values)
+        else:
+            print("Error. state log path {0} does not exist".format(state_path))
+            
     # Initialize the plot
     fig, ax1 = plt.subplots(figsize=(16,11))
-    ax2 = ax1.twinx()
+    ax2= ax1.twinx()
     
     # Plot the values
     for i, model_name in enumerate(model_names):
@@ -937,6 +962,15 @@ def plot_training(log_paths, model_names, model_color_dict, downsample_interval=
         ax2.plot(epoch_values[i], acc_values[i], color=model_color_dict[model_name][1],
                  label= model_name + " accuracy")
         
+        if len(state_log_epochs) > i:
+            ax1.plot(state_log_epochs[i], state_log_losses[i], color='black', marker='o', markersize=5, linestyle='',
+                     label= model_name + " saved best states (loss)")
+            xy = (round(state_log_epochs[i][-1],4), round(state_log_losses[i][-1],4))
+            ax1.annotate('(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+            ax2.plot(state_log_epochs[i], state_log_acc[i], color='black', marker='o', markersize=5, linestyle='',
+                     label= model_name + " saved best states (accuracy)")
+            xy = (round(state_log_epochs[i][-1],4), round(state_log_acc[i][-1],4))
+            ax2.annotate('(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
         
     # Setup plot characteristics
     ax1.tick_params(axis="both", labelsize=20)
@@ -960,18 +994,23 @@ def plot_training(log_paths, model_names, model_color_dict, downsample_interval=
     plt.clf() # Clear the plot frame
     plt.close() # Close the opened window if any
 
-def plot_learn_hist(train_log,val_log, save_path=None, show_plot=False):
+def plot_learn_hist_smoothed(train_log,val_log, window=40, save_path=None, show_plot=False):
 
     train_log_csv = pd.read_csv(train_log)
     val_log_csv  = pd.read_csv(val_log)
+    
+    # Smooth training, plot validation as scatter
+    train_epoch    = moving_average(np.array(train_log_csv.epoch),window)
+    train_accuracy = moving_average(np.array(train_log_csv.accuracy),window)
+    train_loss     = moving_average(np.array(train_log_csv.loss),window)
 
     fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
-    line11 = ax1.plot(train_log_csv.epoch, train_log_csv.loss, linewidth=2, label='Train loss', color='b', alpha=0.3)
+    line11 = ax1.plot(train_epoch, train_loss, linewidth=2, label='Train loss', color='b', alpha=0.3)
     line12 = ax1.plot(val_log_csv.epoch, val_log_csv.loss, marker='o', markersize=3, linestyle='', label='Validation loss', color='blue')
     
     
     ax2 = ax1.twinx()
-    line21 = ax2.plot(train_log_csv.epoch, train_log_csv.accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.3)
+    line21 = ax2.plot(train_epoch, train_accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.3)
     line22 = ax2.plot(val_log_csv.epoch, val_log_csv.accuracy, marker='o', markersize=3, linestyle='', label='Validation accuracy', color='red')
 
     ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
@@ -1006,38 +1045,3 @@ def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
-
-
-def plot_train_smoothed(train_log,window=40, sample_title="training", save_path=None, show_plot=False):
-    train_log_csv = pd.read_csv(train_log)
-    #val_log_csv  = pd.read_csv(val_log)
-
-    epoch    = moving_average(np.array(train_log_csv.epoch),window)
-    accuracy = moving_average(np.array(train_log_csv.accuracy),window)
-    loss     = moving_average(np.array(train_log_csv.loss),window)
-
-    fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
-    line11 = ax1.plot(train_log_csv.epoch, train_log_csv.loss, linewidth=2, label=sample_title+' loss', color='b', alpha=0.3)
-    line12 = ax1.plot(epoch, loss, label='Average '+sample_title+' loss', color='blue')
-    ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
-    ax1.tick_params('x',colors='black',labelsize=18)
-    ax1.set_ylabel('Loss', fontsize=24, fontweight='bold',color='b')
-    ax1.tick_params('y',colors='b',labelsize=18)
-    
-    ax2 = ax1.twinx()
-    line21 = ax2.plot(train_log_csv.epoch, train_log_csv.accuracy, linewidth=2, label=sample_title+' accuracy', color='r', alpha=0.3)
-    line22 = ax2.plot(epoch, accuracy, label='Average '+sample_title+' accuracy', color='red')
-    
-    ax2.set_ylabel('Accuracy', fontsize=24, fontweight='bold',color='r')
-    ax2.tick_params('y',colors='r',labelsize=18)
-    ax2.set_ylim(0.,1.0)
-    
-    # added these four lines
-    lines  = line11 + line12 + line21 + line22
-    labels = [l.get_label() for l in lines]
-    leg    = ax2.legend(lines, labels, fontsize=16, loc=5, numpoints=1)
-    leg_frame = leg.get_frame()
-    leg_frame.set_facecolor('white')
-    
-    plt.grid()
-    plt.show()

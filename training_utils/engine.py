@@ -27,6 +27,12 @@ from training_utils.doublepriorityqueue import DoublePriority
 ROOT_DUMP = 'ROOTS.txt'
 # Directory containing saved states
 STATE_DIR = 'saved_states/'
+# Name of file containing saved validation data
+VAL_STATE = 'val_state.npz'
+# Names of training and validation logs
+TRAIN_LOG = 'log_train.csv'
+VAL_LOG = 'val_test.csv'
+BEST_LOG = 'best_states.csv'
 
 # Names and labels corresponding to particle classes
 GAMMA, ELECTRON, MUON = 0, 1, 2
@@ -79,55 +85,61 @@ class Engine:
         self.data=None
         self.labels=None
         self.iteration=None
-
-        # NOTE: The functionality of this block is coupled to the implementation of WCH5Dataset in the iotools module
-        self.dset=WCH5Dataset(config.path,
-                              config.val_split,
-                              config.test_split,
-                              shuffle=config.shuffle,
-                              reduced_dataset_size=config.subset)
-
-        self.train_iter=DataLoader(self.dset,
-                                   batch_size=config.batch_size_train,
-                                   shuffle=False,
-                                   sampler=SubsetRandomSampler(self.dset.train_indices))
         
-        self.val_iter=DataLoader(self.dset,
-                                 batch_size=config.batch_size_val,
-                                 shuffle=False,
-                                 sampler=SubsetRandomSampler(self.dset.val_indices))
-        
-        self.test_iter=DataLoader(self.dset,
-                                  batch_size=config.batch_size_test,
-                                  shuffle=False,
-                                  sampler=SubsetRandomSampler(self.dset.test_indices))
-
-        
-
         self.dirpath=config.save_path
-        
         self.data_description=config.data_description
 
-
-        
-        try:
-            os.stat(self.dirpath)
-        except:
-            print("making a directory for model data: {}".format(self.dirpath))
-            os.mkdir(self.dirpath)
-
-        #add the path for the data type to the dirpath
-        self.start_time_str = time.strftime("%Y%m%d_%H%M%S")
-        self.dirpath=self.dirpath+'/'+self.data_description + "/" + self.start_time_str
-
-        try:
-            os.stat(self.dirpath)
-        except:
-            print("making a directory for model data for data prepared as: {}".format(self.data_description))
-            os.makedirs(self.dirpath,exist_ok=True)
+        # NOTE: The functionality of this block is coupled to the implementation of WCH5Dataset in the iotools module
+        if config.path is not None:
+            self.dset=WCH5Dataset(config.path,
+                                  config.val_split,
+                                  config.test_split,
+                                  shuffle=config.shuffle,
+                                  reduced_dataset_size=config.subset)
+    
+            self.train_iter=DataLoader(self.dset,
+                                       batch_size=config.batch_size_train,
+                                       shuffle=False,
+                                       sampler=SubsetRandomSampler(self.dset.train_indices))
+            
+            self.val_iter=DataLoader(self.dset,
+                                     batch_size=config.batch_size_val,
+                                     shuffle=False,
+                                     sampler=SubsetRandomSampler(self.dset.val_indices))
+            
+            self.test_iter=DataLoader(self.dset,
+                                      batch_size=config.batch_size_test,
+                                      shuffle=False,
+                                      sampler=SubsetRandomSampler(self.dset.test_indices))
+            
+            try:
+                os.stat(self.dirpath)
+            except:
+                print("making a directory for model data: {}".format(self.dirpath))
+                os.mkdir(self.dirpath)
+    
+            #add the path for the data type to the dirpath
+            self.start_time_str = time.strftime("%Y%m%d_%H%M%S")
+            self.dirpath=os.path.join(self.dirpath, self.data_description, self.start_time_str)
+    
+            try:
+                os.stat(self.dirpath)
+            except:
+                print("making a directory for model data for data prepared as: {}".format(self.data_description))
+                os.makedirs(self.dirpath,exist_ok=True)
+                
+            self.state_dir = os.path.join(config.save_path, STATE_DIR)
+            
+        else:
+            print("Warning: No training dataset supplied, can only run visualization tasks.")
+            self.dset = None
+            dirpath = os.path.join(self.dirpath, self.data_description)
+            assert os.path.isdir(dirpath) and len(os.listdir(dirpath)) > 0, "No dataset provided and specified save directory "+dirpath+" does not exist(or is empty), aborting."
+            runs = sorted(os.listdir(dirpath))
+            self.dirpath = os.path.join(dirpath, runs[-1])
+            print("Set target directory to", self.dirpath)
 
         self.config=config
-        self.state_dir = self.config.save_path+STATE_DIR
 
 
     def forward(self,train=True):
@@ -166,9 +178,9 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
-    def train(self, epochs=3.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000):
+    def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000):
         
-        if len(self.dset.train_indices) == 0:
+        if self.dset is None or len(self.dset.train_indices) == 0:
             print("No examples in training set, skipping training...")
             return
         
@@ -180,7 +192,7 @@ class Engine:
         continue_train = True
         
         # Prepare attributes for data logging
-        self.train_log, self.val_log = CSVData(self.dirpath+'/log_train.csv'), CSVData(self.dirpath+'/val_test.csv')
+        self.train_log, self.val_log, self.best_states = CSVData(os.path.join(self.dirpath, TRAIN_LOG)), CSVData(os.path.join(self.dirpath, VAL_LOG)), CSVData(os.path.join(self.dirpath, BEST_LOG))
         # Set neural net to training mode
         self.model.train()
         # Initialize epoch counter
@@ -238,10 +250,12 @@ class Engine:
                         self.val_log.write()
                     self.model.train()
                     continue_train = True
-                    # Save best-so-far training state
+                    # Save best-so-far training state and record its position in the training log
                     if(res["accuracy"]-best_val_acc > ACC_THRESHOLD):
                         best_val_acc = res["accuracy"]
                         self.save_state(curr_iter=BEST_FLAG)
+                        self.best_states.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
+                        self.best_states.write()
                     
                 if epoch >= epochs:
                     break
@@ -252,10 +266,10 @@ class Engine:
             print('\r', end='')
             print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
             
+            if epoch >= epochs:
+                    break
+            
         print('')
-        
-        # Dump training log visualization
-        rv.dump_training_visuals(self.train_log.name, self.val_log.name, save_path=self.config.save_path)
         
         self.val_log.close()
         self.train_log.close()
@@ -276,7 +290,7 @@ class Engine:
         Returns : None
         """
         
-        if len(self.dset.val_indices) == 0:
+        if self.dset is None or len(self.dset.val_indices) == 0:
             print("No examples in validation set, skipping validation...")
             return
         
@@ -312,7 +326,7 @@ class Engine:
                 
                 if i != 0:
                     print('\r', end='')
-                print("val_iterations : " + str(val_iterations), end='')
+                print("val_iterations: "+str(val_iterations)+"/"+str(len(self.val_iter)), end='')
                 
                 # Stop after specified number of batches
                 if batches is not None and i >= batches:
@@ -361,7 +375,7 @@ class Engine:
         # If requested, dump list of root files + indices to save_path directory
         if pushing:
             root_path = (os.path.dirname(self.config.path)+'/' if self.config.root is None else self.config.root)+ROOT_DUMP
-            plot_path = self.config.save_path+"extreme_events/"
+            plot_path = os.path.join(self.config.save_path, "extreme_events/")
             if not os.path.exists(plot_path):
                 os.mkdir(plot_path)
             wl_lo = open(plot_path+'list_lo.txt', 'w+')
@@ -397,20 +411,17 @@ class Engine:
 #                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
 #                                    np_softmaxes.shape[2]))
         
-        # If requested, save analysis plots
-        if save_plots:
-            plot_data_path = self.config.save_path+'val_state.npz'
-            np.savez_compressed(self.config.save_path+'val_state.npz',
-                                prediction=np.array(predictions),
-                                softmax=np.array(softmaxes),
-                                loss=np.array(loss),
-                                accuracy=np.array(accuracy),
-                                labels=np.array(labels),
-                                energies=np.array(energies),
-                                data=self.config.path)
-            print("Dumped result array to", plot_data_path)
-            plot_result = rv.open_result(plot_data_path)
-            rv.dump_validation_visuals(plot_result, save_path=self.config.save_path)
+        # Save data for analysis
+        plot_data_path = os.path.join(self.config.save_path, VAL_STATE)
+        np.savez_compressed(plot_data_path,
+                            prediction=np.array(predictions),
+                            softmax=np.array(softmaxes),
+                            loss=np.array(loss),
+                            accuracy=np.array(accuracy),
+                            labels=np.array(labels),
+                            energies=np.array(energies),
+                            data=self.config.path)
+        print("Dumped result array to", plot_data_path)
             
         return {'loss': avg_loss, 'accuracy': avg_acc}
             
@@ -430,7 +441,7 @@ class Engine:
         Returns : None
         """
         
-        if len(self.dset.test_indices) == 0:
+        if self.dset is None or len(self.dset.test_indices) == 0:
             print("No examples in testing set, skipping testing...")
             return
         
@@ -500,6 +511,13 @@ class Engine:
             # load iteration count
             self.iteration = checkpoint['global_step']
         print('Restoration complete.')
+        
+    # Function that calls the functions of result_visualizer module on the contents of the Engine object
+    def dump_plots(self, plot_data_path=None):
+        rv.dump_training_visuals(os.path.join(self.dirpath, TRAIN_LOG), os.path.join(self.dirpath, VAL_LOG), best_csv_path=os.path.join(self.dirpath, BEST_LOG),
+                                 save_path=self.config.save_path)
+        plot_result = rv.open_result(os.path.join(self.config.save_path, VAL_STATE) if plot_data_path is None else plot_data_path)
+        rv.dump_validation_visuals(plot_result, save_path=self.config.save_path)
         
     # The function below is deprecated
 # =============================================================================

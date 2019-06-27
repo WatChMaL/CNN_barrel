@@ -30,16 +30,14 @@ def open_result(path):
     return np.load(path)
 
 # Dumps an instance of every training-based plot in plot_utils to save_path based on data in result
-def dump_training_visuals(train_csv_path, val_csv_path, save_path=''):
+def dump_training_visuals(train_csv_path, val_csv_path, best_csv_path='', save_path=''):
     plotted = []
     if os.path.isfile(train_csv_path):
-        plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.eps")
+        plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, state_paths=[best_csv_path], downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.eps")
         plotted.append('plot_training')
-        plu.plot_train_smoothed(train_csv_path, save_path=save_path+"train_log_smoothed.eps")
-        plotted.append('plot_train_smoothed')
         if os.path.isfile(val_csv_path):
-            plu.plot_learn_hist(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.eps")
-            plotted.append('plot_learn_hist')
+            plu.plot_learn_hist_smoothed(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.eps")
+            plotted.append('plot_learn_hist_smoothed')
         else:
             print("Could not locate validation log at", val_csv_path)
     else:

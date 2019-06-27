@@ -16,6 +16,7 @@ import io_utils.ioconfig as ioconfig
 import io_utils.modelhandler as modelhandler
 
 USER_DIR = 'USER/'
+TASKS = ['train', 'test', 'valid', 'plot']
 
 # Global list of arguments to request from commandline
 ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
@@ -27,7 +28,7 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
         arghandler.Argument('gpu_list', list, list_dtype=int, flag='-gpu',
                             help='List of available GPUs.'),
         arghandler.Argument('path', str, '-pat',
-                            default='', help='Path to training dataset.'),
+                            default=None, help='Path to training dataset.'),
         arghandler.Argument('root', str, '-roo',
                             default=None, help='Path to ROOT file list directory if outside data directory.'),
         arghandler.Argument('subset', int, '-sub',
@@ -47,7 +48,7 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
         arghandler.Argument('batch_size_test', int, '-tsb',
                             default=16, help='Batch size for testing.'),
         arghandler.Argument('tasks',list, list_dtype=str, flag='-do',
-                            default=['train', 'test', 'valid'], help='Specify list of tasks: "train" = run training; "test" = run testing; "valid" = run validation. Default behaviour runs all tasks.'),
+                            default=TASKS, help='Specify list of tasks: "train" = run training; "test" = run testing; "valid" = run validation; "plot" = dump validation plots. Default behaviour runs all tasks.'),
         arghandler.Argument('worst', int, flag='-wst',
                             default=0, help='Specify the number of WORST-identified events to dump root file references to at the end of validation.'),
         arghandler.Argument('best', int, flag='-bst',
@@ -87,7 +88,7 @@ if __name__ == '__main__':
         ioconfig.loadConfig(config, config.load, ATTR_DICT)
     # Check attributes for validity
     for task in config.tasks:
-        assert(task in ['train', 'test', 'valid'])
+        assert(task in TASKS)
     # Save to file
     if config.cfg is not None:
         ioconfig.saveConfig(config, config.cfg)
@@ -110,8 +111,10 @@ if __name__ == '__main__':
         nnet.restore_state(config.restore_state)
     if 'train' in config.tasks:
         print("Number of epochs :", config.epochs)
-        nnet.train(epochs=config.epochs, save_interval=1000)
+        nnet.train(epochs=config.epochs)
     if 'test' in config.tasks:
         nnet.test()
     if 'valid' in config.tasks:
         nnet.validate(plt_worst=config.worst, plt_best=config.best)
+    if 'plot' in config.tasks:
+        nnet.dump_plots()
