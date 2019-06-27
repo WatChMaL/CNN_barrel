@@ -255,7 +255,7 @@ class Engine:
         print('')
         
         # Dump training log visualization
-        rv.dump_training_visuals(self.train_log.name, tasks=['plot_training'], save_path=self.config.save_path)
+        rv.dump_training_visuals(self.train_log.name, self.val_log.name, save_path=self.config.save_path)
         
         self.val_log.close()
         self.train_log.close()
@@ -410,7 +410,7 @@ class Engine:
                                 data=self.config.path)
             print("Dumped result array to", plot_data_path)
             plot_result = rv.open_result(plot_data_path)
-            rv.dump_visuals(plot_result, tasks=['plot_training'], save_path=self.config.save_path)
+            rv.dump_validation_visuals(plot_result, save_path=self.config.save_path)
             
         return {'loss': avg_loss, 'accuracy': avg_acc}
             

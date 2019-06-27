@@ -152,7 +152,17 @@ def normalize_dataset(config):
     
 # Identity function that returns the input dataset
 def identity(data, acc=None, apply=False):
-    return data
+    if apply:
+        return data
+    else:
+        return acc
+
+# Function that removes all data from a dataset by setting everything to 0
+def set_zero(data, acc=None, apply=False):
+    if apply:
+        return np.zeros(data.shape)
+    else:
+        return acc
 
 # Function that divides every entry in data array by the (non-zero) mean of the data
 # acc = [current sum of events seen, number of events seen]

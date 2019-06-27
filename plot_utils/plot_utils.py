@@ -87,8 +87,8 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
     for label in energies_dict.keys():
         label_to_use = r"$\{0}$".format(label) if label is not "e" else r"${0}$".format(label)
         
-        axes[label_dict[label]].hist(energies_dict[label], bins=50, density=False, label=label_to_use, alpha=0.8,
-                        color=color_dict[label])
+        axes[label_dict[label]].hist(energies_dict[label], bins=50, histtype='step', fill=False,
+            label=label_to_use, color=color_dict[label])
         axes[label_dict[label]].tick_params(labelsize=20)
         axes[label_dict[label]].legend(prop={"size":20})
         axes[label_dict[label]].grid(True, which="both", axis="both")
@@ -103,9 +103,9 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
     
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the plot frame
-        plt.close() # Close the opened window if any
+
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
 
 
 # Function to plot a confusion matrix
@@ -175,9 +175,9 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
         
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the plot frame
-        plt.close() # Close the opened window if any
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
 
 # Plot the classifier for a given event type for several true event types
 def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, event_dict, min_energy=0,
@@ -245,9 +245,8 @@ def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, ev
         if(curr_softmax.shape[0] <= 0):
             return None, None, None
         else:
-            values, bins, patches = plt.hist(curr_softmax, bins=num_bins, density=False,
-                                             label= label_to_use, color=color_dict[event_type],
-                                             alpha=0.5, stacked=True)
+            values, bins, patches = plt.hist(curr_softmax, bins=num_bins, histtype='step', fill=False,
+                                             label= label_to_use, color=color_dict[event_type])
         
     if save_path is not None or show_plot:
         ax.grid(True)
@@ -270,9 +269,9 @@ def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, ev
         
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the current figure
-        plt.close() # Close the opened window
+        
+    plt.clf() # Clear the current figure
+    plt.close() # Close the opened window
         
     return values, bins, patches
 
@@ -373,9 +372,9 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
     
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the current figure
-        plt.close() # Close the opened window
+        
+    plt.clf() # Clear the current figure
+    plt.close() # Close the opened window
         
         
     return fpr_0, tpr_0, threshold_0, roc_auc_0, fpr_1, tpr_1, threshold_1, roc_auc_1
@@ -548,9 +547,9 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
     
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the current figure
-        plt.close() # Close the opened window
+        
+    plt.clf() # Clear the current figure
+    plt.close() # Close the opened window
         
 # Plot background rejection for a given event
 def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
@@ -674,7 +673,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
             # Initialize the dict to pass
             if( key == "total" ):
                 pass_dict = softmax_index_dict.copy()
-                del pass_dict[event]
+                del pass_dict[key]
             else:
                 pass_dict = {key:softmax_index_dict[key]}
 
@@ -755,8 +754,11 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
         
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300)
-    else:
+    if show_plot:
         plt.show()
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
     
 # Plot the reconstructed vs actual events
 def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=False, save_path=None):
@@ -835,9 +837,9 @@ def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=Fal
     
     if show_plot:
         plt.show()
-    else:
-        plt.clf() # Clear the plot frame
-        plt.close() # Close the opened window if any
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
         
 # Plot model performance over the training iterations
 def plot_training(log_paths, model_names, model_color_dict, downsample_interval=None, legend_loc=(0.8,0.5), show_plot=False, save_path=None):
@@ -952,5 +954,90 @@ def plot_training(log_paths, model_names, model_color_dict, downsample_interval=
     
     if save_path is not None:
         plt.savefig(save_path, format='eps', dpi=300, bbox_extra_artists=(lgd))
-    else:
+    if show_plot:
         plt.show()
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
+
+def plot_learn_hist(train_log,val_log, save_path=None, show_plot=False):
+
+    train_log_csv = pd.read_csv(train_log)
+    val_log_csv  = pd.read_csv(val_log)
+
+    fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
+    line11 = ax1.plot(train_log_csv.epoch, train_log_csv.loss, linewidth=2, label='Train loss', color='b', alpha=0.3)
+    line12 = ax1.plot(val_log_csv.epoch, val_log_csv.loss, marker='o', markersize=3, linestyle='', label='Validation loss', color='blue')
+    
+    
+    ax2 = ax1.twinx()
+    line21 = ax2.plot(train_log_csv.epoch, train_log_csv.accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.3)
+    line22 = ax2.plot(val_log_csv.epoch, val_log_csv.accuracy, marker='o', markersize=3, linestyle='', label='Validation accuracy', color='red')
+
+    ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
+    ax1.tick_params('x',colors='black',labelsize=18)
+    ax1.set_ylabel('Loss', fontsize=24, fontweight='bold',color='b')
+    ax1.tick_params('y',colors='b',labelsize=18)
+    
+    ax2.set_ylabel('Accuracy', fontsize=24, fontweight='bold',color='r')
+    ax2.tick_params('y',colors='r',labelsize=18)
+    ax2.set_ylim(0.,1.05)
+    
+
+    # added these four lines
+    lines  = line11 + line12 + line21 + line22
+    labels = [l.get_label() for l in lines]
+    leg    = ax2.legend(lines, labels, fontsize=16, loc=5, numpoints=1)
+    leg_frame = leg.get_frame()
+    leg_frame.set_facecolor('white')
+
+    plt.grid()
+    
+    if save_path is not None:
+        plt.savefig(save_path, format='eps')
+    
+    if show_plot:
+        plt.show()
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+
+def plot_train_smoothed(train_log,window=40, sample_title="training", save_path=None, show_plot=False):
+    train_log_csv = pd.read_csv(train_log)
+    #val_log_csv  = pd.read_csv(val_log)
+
+    epoch    = moving_average(np.array(train_log_csv.epoch),window)
+    accuracy = moving_average(np.array(train_log_csv.accuracy),window)
+    loss     = moving_average(np.array(train_log_csv.loss),window)
+
+    fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
+    line11 = ax1.plot(train_log_csv.epoch, train_log_csv.loss, linewidth=2, label=sample_title+' loss', color='b', alpha=0.3)
+    line12 = ax1.plot(epoch, loss, label='Average '+sample_title+' loss', color='blue')
+    ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
+    ax1.tick_params('x',colors='black',labelsize=18)
+    ax1.set_ylabel('Loss', fontsize=24, fontweight='bold',color='b')
+    ax1.tick_params('y',colors='b',labelsize=18)
+    
+    ax2 = ax1.twinx()
+    line21 = ax2.plot(train_log_csv.epoch, train_log_csv.accuracy, linewidth=2, label=sample_title+' accuracy', color='r', alpha=0.3)
+    line22 = ax2.plot(epoch, accuracy, label='Average '+sample_title+' accuracy', color='red')
+    
+    ax2.set_ylabel('Accuracy', fontsize=24, fontweight='bold',color='r')
+    ax2.tick_params('y',colors='r',labelsize=18)
+    ax2.set_ylim(0.,1.0)
+    
+    # added these four lines
+    lines  = line11 + line12 + line21 + line22
+    labels = [l.get_label() for l in lines]
+    leg    = ax2.legend(lines, labels, fontsize=16, loc=5, numpoints=1)
+    leg_frame = leg.get_frame()
+    leg_frame.set_facecolor('white')
+    
+    plt.grid()
+    plt.show()

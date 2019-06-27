@@ -30,14 +30,20 @@ def open_result(path):
     return np.load(path)
 
 # Dumps an instance of every training-based plot in plot_utils to save_path based on data in result
-def dump_training_visuals(csv_path, tasks=TASKS, save_path=''):
+def dump_training_visuals(train_csv_path, val_csv_path, save_path=''):
     plotted = []
-    if 'plot_training' in tasks:
-        if os.path.isfile(csv_path):
-            plu.plot_training([csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.eps")
-            plotted.append('plot_training')
+    if os.path.isfile(train_csv_path):
+        plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.eps")
+        plotted.append('plot_training')
+        plu.plot_train_smoothed(train_csv_path, save_path=save_path+"train_log_smoothed.eps")
+        plotted.append('plot_train_smoothed')
+        if os.path.isfile(val_csv_path):
+            plu.plot_learn_hist(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.eps")
+            plotted.append('plot_learn_hist')
         else:
-            print("Could not locate training log at", csv_path)
+            print("Could not locate validation log at", val_csv_path)
+    else:
+        print("Could not locate training log at", train_csv_path)
     
     print ("Dumped performance plots", plotted, "to", save_path)
 
@@ -76,6 +82,7 @@ def dump_validation_visuals(result, tasks=TASKS, save_path=''):
         for i, name in enumerate(class_names):
             other = class_names[(i+1)%len(class_names)]
             plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".eps")
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, other, name, save_path=save_path+other+"_vs_"+name+".eps")
         plotted.append('plot_ROC_curve_one_vs_one')
     if 'plot_signal_efficiency' in tasks:
         for name, i in index_dict.items():
