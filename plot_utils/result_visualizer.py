@@ -33,10 +33,10 @@ def open_result(path):
 def dump_training_visuals(train_csv_path, val_csv_path, best_csv_path='', save_path=''):
     plotted = []
     if os.path.isfile(train_csv_path):
-        plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, state_paths=[best_csv_path], downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.eps")
+        plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, state_paths=[best_csv_path], downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.pdf")
         plotted.append('plot_training')
         if os.path.isfile(val_csv_path):
-            plu.plot_learn_hist_smoothed(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.eps")
+            plu.plot_learn_hist_smoothed(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.pdf")
             plotted.append('plot_learn_hist_smoothed')
         else:
             print("Could not locate validation log at", val_csv_path)
@@ -67,30 +67,30 @@ def dump_validation_visuals(result, tasks=TASKS, save_path=''):
     plotted = []
     # Plotting tasks below:
     if 'plot_event_energy_distribution' in tasks:
-        plu.plot_event_energy_distribution(vis_energies, labels, index_dict, save_path=save_path+"energy_distribution.eps")
+        plu.plot_event_energy_distribution(vis_energies, labels, index_dict, save_path=save_path+"energy_distribution.pdf")
         plotted.append('plot_event_energy_distribution')
     if 'plot_confusion_matrix' in tasks:
-        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, 0, np.amax(vis_energies), save_path=save_path+"confusion_matrix.eps")
+        plu.plot_confusion_matrix(labels, prediction, vis_energies, class_names, max_energy=np.amax(vis_energies), save_path=save_path+"confusion_matrix.pdf")
         plotted.append('plot_confusion_matrix')
     if 'plot_classifier_response' in tasks:
         for i, name in enumerate(class_names):
-            plu.plot_classifier_response(softmax, labels, vis_energies, index_dict, {name:i}, save_path=save_path+"classifier_response_"+name+".eps")
+            plu.plot_classifier_response(softmax, labels, vis_energies, index_dict, {name:i}, save_path=save_path+"classifier_response_"+name+".pdf")
         plotted.append('plot_classifier_response')
     if 'plot_ROC_curve_one_vs_one' in tasks:
         for i, name in enumerate(class_names):
             other = class_names[(i+1)%len(class_names)]
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".eps")
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, other, name, save_path=save_path+other+"_vs_"+name+".eps")
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".pdf")
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, other, name, save_path=save_path+other+"_vs_"+name+".pdf")
         plotted.append('plot_ROC_curve_one_vs_one')
     if 'plot_signal_efficiency' in tasks:
         for name, i in index_dict.items():
             other = class_names[(i+1)%len(class_names)]
-            plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"signal_efficiency_"+name+".eps")
+            plu.plot_signal_efficiency(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"signal_efficiency_"+name+".pdf")
         plotted.append('plot_signal_efficiency')
     if 'plot_background_rejection' in tasks:
         for name, i in index_dict.items():
             other = class_names[(i+1)%len(class_names)]
-            plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"background_rejection_"+name+".eps")
+            plu.plot_background_rejection(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+"background_rejection_"+name+".pdf")
         plotted.append('plot_background_rejection')
 
     print ("Dumped performance plots", plotted, "to", save_path)

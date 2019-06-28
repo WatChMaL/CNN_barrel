@@ -87,7 +87,7 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
     for label in energies_dict.keys():
         label_to_use = r"$\{0}$".format(label) if label is not "e" else r"${0}$".format(label)
         
-        axes[label_dict[label]].hist(energies_dict[label], bins=50, histtype='step', fill=False,
+        axes[label_dict[label]].hist(energies_dict[label], bins=50, histtype='step', linewidth=3, fill=False,
             label=label_to_use, color=color_dict[label])
         axes[label_dict[label]].tick_params(labelsize=20)
         axes[label_dict[label]].legend(prop={"size":20})
@@ -99,7 +99,7 @@ def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full
                              fontsize=20)
         
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
     
     if show_plot:
         plt.show()
@@ -138,13 +138,13 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
     predictions = predictions[energy_slice_map]
     
     if(show_plot or save_path is not None):
-        fig, ax = plt.subplots(figsize=(12,8),facecolor='w')
+        fig, ax = plt.subplots(figsize=(12,10),facecolor='w')
         num_labels = len(class_names)
         max_value = np.max([np.max(np.unique(labels)),np.max(np.unique(labels))])
         assert max_value < num_labels
         mat,_,_,im = ax.hist2d(predictions, labels,
                                bins=(num_labels,num_labels),
-                               range=((-0.5,num_labels-0.5),(0,num_labels-0.5)),cmap=plt.cm.Blues)
+                               range=((-0.5,num_labels-0.5),(-0.5,num_labels-0.5)),cmap=plt.cm.Blues)
 
         # Normalize the confusion matrix
         mat = mat.astype("float") / mat.sum(axis=0)[:, np.newaxis]
@@ -168,16 +168,17 @@ def plot_confusion_matrix(labels, predictions, energies, class_names, min_energy
                         ha="center", va="center", fontsize=20,
                         color="white" if mat[i,j] > (0.5*mat.max()) else "black")
         fig.tight_layout()
-        plt.title("Confusion matrix, " + r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20) 
+        plt.title("Confusion matrix, " + r"${0} \leq E < {1}$".format(round(min_energy, 2), round(max_energy, 2)), fontsize=20)        
+        plt.subplots_adjust(top=0.9)
    
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
         
     if show_plot:
         plt.show()
-        
-    plt.clf() # Clear the plot frame
-    plt.close() # Close the opened window if any
+    else:
+        plt.clf() # Clear the plot frame
+        plt.close() # Close the opened window if any
 
 # Plot the classifier for a given event type for several true event types
 def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, event_dict, min_energy=0,
@@ -245,7 +246,7 @@ def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, ev
         if(curr_softmax.shape[0] <= 0):
             return None, None, None
         else:
-            values, bins, patches = plt.hist(curr_softmax, bins=num_bins, histtype='step', fill=False,
+            values, bins, patches = plt.hist(curr_softmax, bins=num_bins, histtype='step', linewidth=3, fill=False,
                                              label= label_to_use, color=color_dict[event_type])
         
     if save_path is not None or show_plot:
@@ -262,10 +263,10 @@ def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, ev
 
         plt.legend(loc="upper left", prop={"size":20})
         
-        plt.title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
+        plt.title(r"${0} \leq E < {1}$".format(round(min_energy,2), round(max_energy,2)), fontsize=20)
         
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
         
     if show_plot:
         plt.show()
@@ -365,7 +366,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
                     ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18)
                     todo[point] = False
 
-        ax.grid(True, which='both')
+        ax.grid(True, which='both', color='grey')
         xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
         ylabel = r"$\{0}$ background rejection".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
         
@@ -373,11 +374,11 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
         ax.set_ylabel(ylabel, fontsize=20)
         
         ax.set_yscale("log")
-        ax.set_title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
+        ax.set_title(r"${0} \leq E < {1}$".format(round(min_energy,2), round(max_energy,2)), fontsize=20)
         ax.legend(loc="upper right", prop={"size":20})
 
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
     
     if show_plot:
         plt.show()
@@ -541,7 +542,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
              title = r"Signal Efficiency vs Energy for ${0}$ events.".format(label_0)
              
     plt.title(title, fontsize=20)
-    plt.grid(True)
+    plt.grid(True, color='grey')
              
     plt.xlim([min_energy, max_energy])
     plt.ylim([0, 1.05])
@@ -552,7 +553,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
     plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
     
     if show_plot:
         plt.show()
@@ -751,7 +752,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
         title = r"${0}$ Background rejection vs Energy for selecting $\{1}$ events.".format(key, label_0)
              
     plt.title(title, fontsize=20)
-    plt.grid(True)
+    plt.grid(True, color='grey')
              
     plt.xlim([min_energy, max_energy])
     plt.ylim([0.0, 1.05])
@@ -762,7 +763,7 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
     plt.legend(loc="upper left", prop={"size":20})
         
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
     if show_plot:
         plt.show()
         
@@ -842,7 +843,7 @@ def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=Fal
     axes[1].set_yticklabels((axes[1].get_yticks()/10).astype(int))
     
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300)
+        plt.savefig(save_path)
     
     if show_plot:
         plt.show()
@@ -963,14 +964,14 @@ def plot_training(log_paths, model_names, model_color_dict, state_paths=[], down
                  label= model_name + " accuracy")
         
         if len(state_log_epochs) > i:
-            ax1.plot(state_log_epochs[i], state_log_losses[i], color='black', marker='o', markersize=5, linestyle='',
+            ax1.plot(state_log_epochs[i], state_log_losses[i], marker='o', markersize=5, linestyle='', color=model_color_dict[model_name][0],
                      label= model_name + " saved best states (loss)")
             xy = (round(state_log_epochs[i][-1],4), round(state_log_losses[i][-1],4))
-            ax1.annotate('(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
-            ax2.plot(state_log_epochs[i], state_log_acc[i], color='black', marker='o', markersize=5, linestyle='',
+            ax1.annotate('\t(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+            ax2.plot(state_log_epochs[i], state_log_acc[i], marker='o', markersize=5, linestyle='', color=model_color_dict[model_name][1],
                      label= model_name + " saved best states (accuracy)")
             xy = (round(state_log_epochs[i][-1],4), round(state_log_acc[i][-1],4))
-            ax2.annotate('(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+            ax2.annotate('\t(Epoch: %s, Accuracy: %s)' % xy, xy=xy, textcoords='data', fontsize=18)
         
     # Setup plot characteristics
     ax1.tick_params(axis="both", labelsize=20)
@@ -982,12 +983,12 @@ def plot_training(log_paths, model_names, model_color_dict, state_paths=[], down
     ax2.set_ylabel("Accuracy", fontsize=20)
     ax2.set_ylim(bottom=0)
     
-    plt.grid(True)
+    plt.grid(True, color='grey')
     lgd = fig.legend(prop={"size":20}, bbox_to_anchor=legend_loc)
     fig.suptitle("Training vs Epochs", fontsize=25)
     
     if save_path is not None:
-        plt.savefig(save_path, format='eps', dpi=300, bbox_extra_artists=(lgd))
+        plt.savefig(save_path, bbox_extra_artists=(lgd))
     if show_plot:
         plt.show()
         
@@ -1005,12 +1006,12 @@ def plot_learn_hist_smoothed(train_log,val_log, window=40, save_path=None, show_
     train_loss     = moving_average(np.array(train_log_csv.loss),window)
 
     fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
-    line11 = ax1.plot(train_epoch, train_loss, linewidth=2, label='Train loss', color='b', alpha=0.3)
+    line11 = ax1.plot(train_epoch, train_loss, linewidth=2, label='Train loss', color='b', alpha=0.7)
     line12 = ax1.plot(val_log_csv.epoch, val_log_csv.loss, marker='o', markersize=3, linestyle='', label='Validation loss', color='blue')
     
     
     ax2 = ax1.twinx()
-    line21 = ax2.plot(train_epoch, train_accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.3)
+    line21 = ax2.plot(train_epoch, train_accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.7)
     line22 = ax2.plot(val_log_csv.epoch, val_log_csv.accuracy, marker='o', markersize=3, linestyle='', label='Validation accuracy', color='red')
 
     ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
@@ -1030,10 +1031,10 @@ def plot_learn_hist_smoothed(train_log,val_log, window=40, save_path=None, show_
     leg_frame = leg.get_frame()
     leg_frame.set_facecolor('white')
 
-    plt.grid()
+    plt.grid(color='grey')
     
     if save_path is not None:
-        plt.savefig(save_path, format='eps')
+        plt.savefig(save_path)
     
     if show_plot:
         plt.show()

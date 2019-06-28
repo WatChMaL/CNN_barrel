@@ -123,7 +123,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
         fig_id += 1
         # Log-scaled version of above
         plot_single_hist(sample_chrg, bins, outpath, fig_id, title=title+"Log-Scaled Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
-                         xlabel="Charge", ylabel="log(Hits)", yscale="log", show=show)
+                         xlabel="Charge", ylabel="Hits (log-scaled)", yscale="log", show=show)
         fig_id += 1
 
         if 'p' in to_plot:
@@ -136,7 +136,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             # Log-scaled version of above
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
                                title=title+"Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
-                               xlabel="Charge", ylabel="log(Hits)", yscale='log', show=show)
+                               xlabel="Charge", ylabel="Hits (log-scaled)", yscale='log', show=show)
             fig_id += 1
             
         if 'e' in to_plot:
@@ -182,7 +182,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
         fig_id += 1
         # Log-scaled version of above
         plot_single_hist(sample_time, bins, outpath, fig_id, title=title+"Log-Scaled Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
-                         xlabel="Time", ylabel="log(Hits)", yscale="log", show=show)
+                         xlabel="Time", ylabel="Hits (log-scaled)", yscale="log", show=show)
         fig_id += 1
         
         if 'p' in to_plot:
@@ -195,7 +195,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             # Log-scaled version of above
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
                                title=title+"Log-scaled Overlaid Distribution of All Event Types (Sampling "+sample_ratio_str+" events)",
-                               xlabel="Time", ylabel="log(Hits)", yscale='log', show=show)
+                               xlabel="Time", ylabel="Hits (log-scaled)", yscale='log', show=show)
             fig_id += 1
             
         if 'e' in to_plot:
@@ -287,7 +287,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
         # Log-scaled version of above
         plot_overlaid_hist(chrg_dsets, bins, outpath, 1,
                            title="Log-scaled charge distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
-                           xlabel="Charge", ylabel="log(Hits)", yscale='log', show=show)
+                           xlabel="Charge", ylabel="Hits (log-scaled)", yscale='log', show=show)
     
     if 't' in to_plot:
         # Overlaid timing histograms of normalization schemes
@@ -297,7 +297,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
         # Log-scaled version of above
         plot_overlaid_hist(time_dsets, bins, outpath, 3,
                            title="Log-scaled timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
-                           xlabel="Timing", ylabel="log(Hits)", yscale='log', show=show)
+                           xlabel="Timing", ylabel="Hits (log-scaled)", yscale='log', show=show)
 
 # ========================= Plotting Functions ============================
 
