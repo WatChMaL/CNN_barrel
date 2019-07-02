@@ -39,7 +39,8 @@ GAMMA, ELECTRON, MUON = 0, 1, 2
 EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
 
 # Flag to distinguish best-so-far save state
-BEST_FLAG = 1337
+BEST_FLAG = 'BEST'
+LATEST_FLAG = 'LATEST'
 
 # Accuracy threshold to define when a model is significantly better than a previous model
 ACC_THRESHOLD = 1e-3
@@ -178,7 +179,7 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
-    def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000):
+    def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000, save_all=False):
         
         if self.dset is None or len(self.dset.train_indices) == 0:
             print("No examples in training set, skipping training...")
@@ -262,7 +263,7 @@ class Engine:
                     
                 # Save on the given intervals
                 if(i+1)%save_interval == 0:
-                    self.save_state(curr_iter=iteration)
+                    self.save_state(curr_iter=str(iteration) if save_all else LATEST_FLAG)
             print('\r', end='')
             print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
             
@@ -479,11 +480,11 @@ class Engine:
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
 
-    def save_state(self, curr_iter=0):
+    def save_state(self, curr_iter_str=LATEST_FLAG):
         # If saving a best state, update best_state attribute
         if not os.path.isdir(self.state_dir):
             os.mkdir(self.state_dir)
-        filename = self.state_dir+str(self.config.model[1])+"_"+str(curr_iter)
+        filename = self.state_dir+str(self.config.model[1])+"_"+curr_iter_str
         if os.path.exists(filename):
             os.remove(filename)
         # Save parameters

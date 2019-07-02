@@ -119,6 +119,5 @@ feature_extraction.py
 *.npz
 *.h5
 *.pdf
-*.png
 *.npy
 *.save
