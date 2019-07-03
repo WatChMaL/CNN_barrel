@@ -195,6 +195,14 @@ def divide_by_max(data, acc=None, apply=False):
         if acc is None:
             acc = 0
         return max(np.amax(data), acc)
+    
+# Function that divides every entry in a data array by the max of the data scaled by some factor
+def divide_by_max_scaled(data, scale=2, acc=None, apply=False):
+    check_data(data)
+    if apply:
+        return 2*divide_by_max(data, acc=acc, apply=apply)
+    else:
+        return divide_by_max(data, acc=acc, apply=apply)
 
 # Function that scales a dataset logarithmically: x = log(x+1)
 def scale_log(data, acc=None, apply=False):

@@ -179,7 +179,7 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
-    def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=10, save_interval=1000, save_all=False):
+    def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=4, save_interval=1000, save_all=False):
         
         if self.dset is None or len(self.dset.train_indices) == 0:
             print("No examples in training set, skipping training...")
@@ -246,7 +246,7 @@ class Engine:
                         # res = self.forward(False)
                         
                         print('')
-                        res = self.validate(load_best=False, batches=valid_batches, save_plots=False)
+                        res = self.validate(load_best=False, batches=valid_batches, save_state=False, save_plots=False)
                         self.val_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.val_log.write()
                     self.model.train()
@@ -254,7 +254,7 @@ class Engine:
                     # Save best-so-far training state and record its position in the training log
                     if(res["accuracy"]-best_val_acc > ACC_THRESHOLD):
                         best_val_acc = res["accuracy"]
-                        self.save_state(curr_iter=BEST_FLAG)
+                        self.save_state(curr_iter_str=BEST_FLAG)
                         self.best_states.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.best_states.write()
                     
@@ -263,7 +263,7 @@ class Engine:
                     
                 # Save on the given intervals
                 if(i+1)%save_interval == 0:
-                    self.save_state(curr_iter=str(iteration) if save_all else LATEST_FLAG)
+                    self.save_state(curr_iter_str=str(iteration) if save_all else LATEST_FLAG)
             print('\r', end='')
             print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
             
@@ -274,10 +274,11 @@ class Engine:
         
         self.val_log.close()
         self.train_log.close()
+        self.best_states.close()
 
     # Function to test the model performance on the validation
     # dataset ( returns loss, acc, confusion matrix )
-    def validate(self, load_best=True, batches=None, plt_worst=0, plt_best=0, save_plots=True):
+    def validate(self, load_best=True, batches=None, plt_worst=0, plt_best=0, save_state=True, save_plots=True):
         r"""Test the trained model on the validation set.
         
         Parameters: None
@@ -327,7 +328,7 @@ class Engine:
                 
                 if i != 0:
                     print('\r', end='')
-                print("val_iterations: "+str(val_iterations)+"/"+str(len(self.val_iter)), end='')
+                print("val_iterations: "+str(val_iterations)+"/"+str(len(self.val_iter) if batches is None else min(batches, len(self.val_iter))), end='')
                 
                 # Stop after specified number of batches
                 if batches is not None and i >= batches:
@@ -412,17 +413,18 @@ class Engine:
 #                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
 #                                    np_softmaxes.shape[2]))
         
-        # Save data for analysis
-        plot_data_path = os.path.join(self.config.save_path, VAL_STATE)
-        np.savez_compressed(plot_data_path,
-                            prediction=np.array(predictions),
-                            softmax=np.array(softmaxes),
-                            loss=np.array(loss),
-                            accuracy=np.array(accuracy),
-                            labels=np.array(labels),
-                            energies=np.array(energies),
-                            data=self.config.path)
-        print("Dumped result array to", plot_data_path)
+        # If requested, save data for analysis
+        if save_state:
+            plot_data_path = os.path.join(self.config.save_path, VAL_STATE)
+            np.savez_compressed(plot_data_path,
+                                prediction=np.array(predictions),
+                                softmax=np.array(softmaxes),
+                                loss=np.array(loss),
+                                accuracy=np.array(accuracy),
+                                labels=np.array(labels),
+                                energies=np.array(energies),
+                                data=self.config.path)
+            print("Dumped result array to", plot_data_path)
             
         return {'loss': avg_loss, 'accuracy': avg_acc}
             

@@ -35,6 +35,8 @@ def dump_training_visuals(train_csv_path, val_csv_path, best_csv_path='', save_p
     if os.path.isfile(train_csv_path):
         plu.plot_training([train_csv_path], ['Resnet18'], {'Resnet18': ['red', 'blue']}, state_paths=[best_csv_path], downsample_interval=128, legend_loc=(0.8, 0.3), save_path=save_path+"training_log.pdf")
         plotted.append('plot_training')
+        plu.plot_train_learn_log(train_csv_path, state_log=best_csv_path, val_log=val_csv_path, save_path=save_path+"train_learn_combined_hist.pdf")
+        plotted.append('plot_train_learn_log')
         if os.path.isfile(val_csv_path):
             plu.plot_learn_hist_smoothed(train_csv_path, val_csv_path, save_path=save_path+"train_learn_hist.pdf")
             plotted.append('plot_learn_hist_smoothed')

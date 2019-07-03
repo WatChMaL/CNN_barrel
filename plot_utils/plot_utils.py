@@ -995,7 +995,7 @@ def plot_training(log_paths, model_names, model_color_dict, state_paths=[], down
     plt.clf() # Clear the plot frame
     plt.close() # Close the opened window if any
 
-def plot_learn_hist_smoothed(train_log,val_log, window=40, save_path=None, show_plot=False):
+def plot_learn_hist_smoothed(train_log, val_log, window=40, save_path=None, show_plot=False):
 
     train_log_csv = pd.read_csv(train_log)
     val_log_csv  = pd.read_csv(val_log)
@@ -1046,3 +1046,83 @@ def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
+
+# Compound plot for training, validation, and best saved state positions
+def plot_train_learn_log(train_log, state_log=None, val_log=None, window=128, save_path=None, show_plot=False):
+    train_log_csv = pd.read_csv(train_log)
+    # Smooth training
+    train_epoch    = moving_average(np.array(train_log_csv.epoch),window)
+    train_accuracy = moving_average(np.array(train_log_csv.accuracy),window)
+    train_loss     = moving_average(np.array(train_log_csv.loss),window)
+    
+    lines = []
+    
+    # Plot training loss
+    fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
+    lines.append(ax1.plot(train_epoch, train_loss, linewidth=2, label='Train loss', color='b', alpha=0.5))
+    # Plot training accuracy
+    ax2 = ax1.twinx()
+    lines.append(ax2.plot(train_epoch, train_accuracy, linewidth=2, label='Train accuracy', color='r', alpha=0.5))
+    
+    # Load validation if provided
+    if val_log is not None and os.path.isfile(val_log):
+        val_log_csv  = pd.read_csv(val_log)
+        # Smooth validation
+        val_epoch    = moving_average(np.array(val_log_csv.epoch), window)
+        val_accuracy = moving_average(np.array(val_log_csv.accuracy), window)
+        val_loss     = moving_average(np.array(val_log_csv.loss), window)
+        
+        # Plot validation loss
+        lines.append(ax1.plot(val_epoch, val_loss, linewidth=2, label='Validation loss', color='b', alpha=1))
+        # Plot validation accuracy
+        lines.append(ax2.plot(val_epoch, val_accuracy, linewidth=2, label='Validation accuracy', color='r', alpha=1))
+    else:
+        print("Provided validation log", val_log, "cannot be located, skipping validation plot...")
+        
+    # Load best state information if provided
+    if state_log is not None and os.path.isfile(state_log):
+        state_log_csv = pd.read_csv(state_log)
+        
+        state_log_epoch    = np.array(state_log_csv.epoch)
+        state_log_accuracy = np.array(state_log_csv.accuracy)
+        state_log_loss     = np.array(state_log_csv.loss)
+        
+        # Plot best state scatter on loss
+        lines.append(ax1.plot(state_log_epoch, state_log_loss, marker='o', markersize=3, linestyle='', label='Best saved states loss', color='b'))
+        xy = (round(state_log_epoch[-1],4), round(state_log_loss[-1],4))
+        ax1.annotate('\t(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=14)
+        # Plot best state scatter on accuracy
+        lines.append(ax2.plot(state_log_epoch, state_log_accuracy, marker='o', markersize=3, linestyle='', label='Best saved states accuracy', color='r'))
+        xy = (round(state_log_epoch[-1],4), round(state_log_accuracy[-1],4))
+        ax2.annotate('\t(Epoch: %s, Accuracy: %s)' % xy, xy=xy, textcoords='data', fontsize=14)
+    else:
+        print("Provided state log", state_log, "cannot be located, skipping best state plot...")
+
+    # General axis formatting
+    ax1.set_xlabel('Epoch',fontweight='bold',fontsize=24,color='black')
+    ax1.tick_params('x',colors='black',labelsize=18)
+    ax1.set_ylabel('Loss', fontsize=24, fontweight='bold',color='b')
+    ax1.tick_params('y',colors='b',labelsize=18)
+    
+    ax2.set_ylabel('Accuracy', fontsize=24, fontweight='bold',color='r')
+    ax2.tick_params('y',colors='r',labelsize=18)
+    ax2.set_ylim(0.,1.05)
+    
+    # Add lines
+    linesum = lines[0]
+    for line in lines[1:]: linesum += line
+    labels = [l.get_label() for l in linesum]
+    leg    = ax2.legend(linesum, labels, fontsize=16, loc=5, numpoints=1)
+    leg_frame = leg.get_frame()
+    leg_frame.set_facecolor('white')
+
+    plt.grid(color='grey')
+    
+    if save_path is not None:
+        plt.savefig(save_path)
+    
+    if show_plot:
+        plt.show()
+        
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
