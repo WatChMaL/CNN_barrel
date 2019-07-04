@@ -48,7 +48,7 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
         arghandler.Argument('batch_size_test', int, '-tsb',
                             default=1024, help='Batch size for testing.'),
         arghandler.Argument('num_workers', int, '-wkr',
-                            default=2, help='Number of subprocesses to load data onto.')
+                            default=2, help='Number of subprocesses to load data onto.'),
         arghandler.Argument('tasks',list, list_dtype=str, flag='-do',
                             default=TASKS, help='Specify list of tasks: "train" = run training; "test" = run testing; "valid" = run validation; "plot" = dump validation plots. Default behaviour runs all tasks.'),
         arghandler.Argument('worst', int, flag='-wst',

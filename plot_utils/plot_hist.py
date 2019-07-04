@@ -263,7 +263,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
     max_time = 0
     for file in files:
         filename = os.path.basename(file)
-        sample_data, event_size = sample(file, sample_size)
+        sample_data, _, event_size = sample(file, sample_size)
         chrg_data = sample_data[:,:,:,:19].reshape(-1,1)
         time_data = sample_data[:,:,:,19:].reshape(-1,1)
         chrg_dsets.append((filename, chrg_data))
@@ -282,21 +282,21 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
     if 'c' in to_plot:
         # Overlaid charge histograms of normalization schemes
         plot_overlaid_hist(chrg_dsets, bins, outpath, 0,
-                           title="Charge distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
+                           title="Charge distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Charge", ylabel="Hits", show=show)
         # Log-scaled version of above
         plot_overlaid_hist(chrg_dsets, bins, outpath, 1,
-                           title="Log-scaled charge distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
+                           title="Log-scaled charge distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Charge", ylabel="Hits (log-scaled)", yscale='log', show=show)
     
     if 't' in to_plot:
         # Overlaid timing histograms of normalization schemes
         plot_overlaid_hist(time_dsets, bins, outpath, 2,
-                           title="Timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
+                           title="Timing distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Timing", ylabel="Hits", show=show)
         # Log-scaled version of above
         plot_overlaid_hist(time_dsets, bins, outpath, 3,
-                           title="Log-scaled timing distributions of all normalization schemes (sample size "+size_str+" for all datasets)",
+                           title="Log-scaled timing distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Timing", ylabel="Hits (log-scaled)", yscale='log', show=show)
 
 # ========================= Plotting Functions ============================
