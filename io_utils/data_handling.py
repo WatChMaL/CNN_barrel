@@ -1,17 +1,27 @@
+"""
+Dataset storing image-like data from Water Cherenkov detector memory-maps the
+detector data from hdf5 file
+
+Author: Wojciech Fedorko
+
+Usage/implementation notes:
+    - The input h5 dataset must contain data categories titled as follows:
+        "event_data": mPMT charge/timing data in the shape
+        (nevents, num_mPMTs_x, num_mPMTs_y, 19 charge channels + 19 timing channels = 38).
+        "labels": truth labels of the particle class that generated each event, shape
+        (nevents, 1). Labels are {gamma: 0, electron: 1, muon: 2}
+        "positions" (currently unused in training engine)
+        "energies" (currently unused in training engine)
+    - The detector data must be uncompressed and unchunked
+    - Labels are loaded into memory outright
+"""
+
 from torch.utils.data import Dataset
 import h5py
 
 import numpy as np
 
 class WCH5Dataset(Dataset):
-    """
-    Dataset storing image-like data from Water Cherenkov detector
-    memory-maps the detector data from hdf5 file
-    The detector data must be uncompresses and unchunked
-    labels are loaded into memory outright
-    No other data is currently loaded 
-    """
-
 
     def __init__(self, path, val_split, test_split, shuffle=True, transform=None, reduced_dataset_size=None, seed=42):
         

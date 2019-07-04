@@ -1,6 +1,14 @@
 '''
-Author: Wojciech Fedorko
-Collaborators: Julian Ding, Abhishek Kajal
+Engine class implementation for CNN training engine.
+Includes methods to train and validate performance, and save and restore state.
+
+Collaborators: Wojciech Fedorko, Julian Ding, Abhishek Kajal
+
+Notes:
+    - DataLoader initializations are coupled to functionality in WCH5Dataset class
+      implementation (found in data_handling module)
+    - Visualization dumping in training and validation are coupled to implementation
+      of the result_visualizer module
 '''
 # ======================== TEST IMPORTS =====================================
 import collections
@@ -101,17 +109,20 @@ class Engine:
             self.train_iter=DataLoader(self.dset,
                                        batch_size=config.batch_size_train,
                                        shuffle=False,
-                                       sampler=SubsetRandomSampler(self.dset.train_indices))
+                                       sampler=SubsetRandomSampler(self.dset.train_indices),
+                                       num_workers=config.num_workers)
             
             self.val_iter=DataLoader(self.dset,
                                      batch_size=config.batch_size_val,
                                      shuffle=False,
-                                     sampler=SubsetRandomSampler(self.dset.val_indices))
+                                     sampler=SubsetRandomSampler(self.dset.val_indices),
+                                     num_workers=config.num_workers)
             
             self.test_iter=DataLoader(self.dset,
                                       batch_size=config.batch_size_test,
                                       shuffle=False,
-                                      sampler=SubsetRandomSampler(self.dset.test_indices))
+                                      sampler=SubsetRandomSampler(self.dset.test_indices),
+                                      num_workers=config.num_workers)
             
             try:
                 os.stat(self.dirpath)
