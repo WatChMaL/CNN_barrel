@@ -160,14 +160,9 @@ class Engine:
         Returns: a dictionary of predicted labels, softmax, loss, and accuracy
         """
         with torch.set_grad_enabled(train):
-            # Move the data and the labels to the GPU
-            self.data = self.data.float()
-            self.data = self.data.to(self.device)
-            self.label = self.label.to(self.device)
-                        
             # Prediction
             #print("this is the data size before permuting: {}".format(data.size()))
-            self.data = self.data.permute(0,3,1,2)
+            self.data = self.data.float().permute(0,3,1,2)
             #print("this is the data size after permuting: {}".format(data.size()))
             prediction = self.model(self.data)
             # Training
