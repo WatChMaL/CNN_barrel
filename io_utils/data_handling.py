@@ -2,7 +2,7 @@
 Dataset storing image-like data from Water Cherenkov detector memory-maps the
 detector data from hdf5 file
 
-Author: Wojciech Fedorko
+Collaborators: Wojciech Fedorko, Julian Ding
 
 Usage/implementation notes:
     - The input h5 dataset must contain data categories titled as follows:
@@ -12,6 +12,9 @@ Usage/implementation notes:
         (nevents, 1). Labels are {gamma: 0, electron: 1, muon: 2}
         "positions" (currently unused in training engine)
         "energies" (currently unused in training engine)
+    - Assuming the same h5 dataset, val_split, test_split, and seed, the pseudorandom
+      index shuffler will always produce the same training, validation, and testing subsets
+      (the pseudorandom number generator is deterministic)
     - The detector data must be uncompressed and unchunked
     - Labels are loaded into memory outright
 """

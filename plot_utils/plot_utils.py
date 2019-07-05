@@ -278,7 +278,7 @@ def plot_classifier_response(softmaxes, labels, energies, softmax_index_dict, ev
 
 # Plot the ROC curve for one vs another class
 def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, label_0, label_1, min_energy=0,
-                              max_energy=1500, show_plot=False, save_path=None):
+                              max_energy=1500, show_plot=False, save_path=None, inverse=False):
     """
     plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, 
                               min_energy, max_energy, show_plot=False, save_path=None)
@@ -350,32 +350,63 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
     
     if show_plot or save_path is not None:
         # Plot the ROC curves
-        fig, ax = plt.subplots(figsize=(16,9),facecolor="w")
-        ax.tick_params(axis="both", labelsize=20)
-
-        ax.plot(tpr_0, inv_fpr_0, color=color_dict[label_0],
-                 label=r"$\{0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0) if label_0 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0),
-                 linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_0])
-        
-        # Show coords of individual points near x = 0.2, 0.5, 0.8
-        todo = {0.2: True, 0.5: True, 0.8: True}
-        for xy in zip(tpr_0, inv_fpr_0):
-            xy = (round(xy[0], 2), round(xy[1], 2))
-            for point in todo.keys():
-                if xy[0] >= point and todo[point]:
-                    ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18)
-                    todo[point] = False
-
-        ax.grid(True, which='both', color='grey')
-        xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
-        ylabel = r"$\{0}$ background rejection".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
-        
-        ax.set_xlabel(xlabel, fontsize=20) 
-        ax.set_ylabel(ylabel, fontsize=20)
-        
-        ax.set_yscale("log")
-        ax.set_title(r"${0} \leq E < {1}$".format(round(min_energy,2), round(max_energy,2)), fontsize=20)
-        ax.legend(loc="upper right", prop={"size":20})
+        if inverse:
+            # 1/FPR vs TPR plot
+            fig, ax = plt.subplots(figsize=(16,9),facecolor="w")
+            ax.tick_params(axis="both", labelsize=20)
+    
+            ax.plot(tpr_0, inv_fpr_0, color=color_dict[label_0],
+                     label=r"$\{0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0) if label_0 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0),
+                     linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_0])
+            
+            # Show coords of individual points near x = 0.2, 0.5, 0.8
+            todo = {0.2: True, 0.5: True, 0.8: True}
+            for xy in zip(tpr_0, inv_fpr_0):
+                xy = (round(xy[0], 2), round(xy[1], 2))
+                for point in todo.keys():
+                    if xy[0] >= point and todo[point]:
+                        ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+                        todo[point] = False
+    
+            ax.grid(True, which='both', color='grey')
+            xlabel = r"$\{0}$ signal efficiency".format(label_0) if label_0 is not "e" else r"${0}$ signal efficiency".format(label_0)
+            ylabel = r"$\{0}$ background rejection".format(label_1) if label_1 is not "e" else r"${0}$ background rejection".format(label_1)
+            
+            ax.set_xlabel(xlabel, fontsize=20) 
+            ax.set_ylabel(ylabel, fontsize=20)
+            
+            ax.set_yscale("log")
+            ax.set_title(r"${0} \leq E < {1}$".format(round(min_energy,2), round(max_energy,2)), fontsize=20)
+            ax.legend(loc="center right", prop={"size":20})
+            
+        else:
+            # Classic TPR vs FPR plot
+            fig, ax = plt.subplots(figsize=(16,9),facecolor="w")
+            ax.tick_params(axis="both", labelsize=20)
+            ax.plot(fpr_0, tpr_0, color=color_dict[label_0],
+                     label=r"$\{0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0) if label_0 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_0, roc_auc_0),
+                     linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_0])
+            ax.plot(fpr_1, tpr_1, color=color_dict[label_1], 
+                     label=r"$\{0}$, AUC ${1:0.3f}$".format(label_1, roc_auc_0) if label_1 is not "e" else r"${0}$, AUC ${1:0.3f}$".format(label_1, roc_auc_0),
+                     linewidth=1.0, marker=".", markersize=4.0, markerfacecolor=color_dict[label_1])
+            
+            # Show coords of individual points near x = 0.2, 0.5, 0.8
+            points = [0.2, 0.5, 0.8]
+            plot_0 = zip(fpr_0, tpr_0)
+            plot_1 = zip(fpr_1, tpr_1)
+            coords = {point:
+                {label_0: next((round(x[0], 3), round(x[1], 3)) for x in plot_0 if x[0] > point),
+                 label_1: next((round(x[0], 3), round(x[1], 3)) for x in plot_1 if x[0] > point)}
+                for point in points}
+            for point in points:
+                ax.annotate(label_0+(' (%s, %s)\n' % coords[point][label_0])+label_1+(' (%s, %s)' % coords[point][label_1]),
+                            xy=coords[point][label_0], textcoords='data', fontsize=18, va="top", ha="left", bbox=dict(boxstyle="round4", fc="w"))
+    
+            ax.grid(True)
+            ax.set_xlabel("False Positive Rate", fontsize=20)
+            ax.set_ylabel("True Positive Rate", fontsize=20)
+            ax.set_title(r"${0} \leq E < {1}$".format(min_energy, max_energy), fontsize=20)
+            ax.legend(loc="lower right", prop={"size":20})
 
     if save_path is not None:
         plt.savefig(save_path)
