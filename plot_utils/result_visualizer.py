@@ -81,8 +81,8 @@ def dump_validation_visuals(result, tasks=TASKS, save_path=''):
     if 'plot_ROC_curve_one_vs_one' in tasks:
         for i, name in enumerate(class_names):
             other = class_names[(i+1)%len(class_names)]
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".pdf")
-            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, other, name, save_path=save_path+other+"_vs_"+name+".pdf")
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, name, other, save_path=save_path+name+"_vs_"+other+".pdf", inverse=True)
+            plu.plot_ROC_curve_one_vs_one(softmax, labels, vis_energies, index_dict, other, name, save_path=save_path+other+"_vs_"+name+".pdf", inverse=True)
         plotted.append('plot_ROC_curve_one_vs_one')
     if 'plot_signal_efficiency' in tasks:
         for name, i in index_dict.items():

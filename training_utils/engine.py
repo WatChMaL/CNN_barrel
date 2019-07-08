@@ -160,10 +160,13 @@ class Engine:
         Returns: a dictionary of predicted labels, softmax, loss, and accuracy
         """
         with torch.set_grad_enabled(train):
-            # Prediction
             #print("this is the data size before permuting: {}".format(data.size()))
             self.data = self.data.float().permute(0,3,1,2)
             #print("this is the data size after permuting: {}".format(data.size()))
+            # Move the data and labels on the selected device
+            self.data = self.data.to(self.device)
+            self.label = self.label.to(self.device)
+            #Prediction
             prediction = self.model(self.data)
             # Training
             loss = -1
@@ -215,10 +218,6 @@ class Engine:
                 # Data and label
                 self.data = data[0]
                 self.label = data[1].long()
-                
-                # Move the data and labels on the GPU
-                self.data = self.data.to(self.device)
-                self.label = self.label.to(self.device)
                 
                 # Call forward: make a prediction & measure the average error
                 res = self.forward(True)
@@ -304,11 +303,14 @@ class Engine:
         
         # If requested, load the best state saved so far
         if load_best:
-            candidates = [os.path.join(self.state_dir, name) for name in os.listdir(self.state_dir) if name.endswith(str(BEST_FLAG))]
-            if len(candidates) > 0:
-                self.restore_state(candidates[0])
-            else:
-                print("Warning: attempted to restore best state but no best state weight file was detected.")
+            try:
+                candidates = [os.path.join(self.state_dir, name) for name in os.listdir(self.state_dir) if name.endswith(str(BEST_FLAG))]
+                if len(candidates) > 0:
+                    self.restore_state(candidates[0])
+                else:
+                    print("Warning: attempted to restore best state but no best state weight file was detected.")
+            except FileNotFoundError:
+                print ("Warning:", self.state_dir, "directory not found, cannot restore best state.")
         
         # Variables to output at the end
         val_loss = 0.0
@@ -518,7 +520,8 @@ class Engine:
             if self.optimizer is not None:
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
             # load iteration count
-            self.iteration = checkpoint['global_step']
+            if 'global_step' in checkpoint.keys():
+                self.iteration = checkpoint['global_step']
         print('Restoration complete.')
         
     # Function that calls the functions of result_visualizer module on the contents of the Engine object

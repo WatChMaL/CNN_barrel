@@ -395,12 +395,12 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
             plot_0 = zip(fpr_0, tpr_0)
             plot_1 = zip(fpr_1, tpr_1)
             coords = {point:
-                {label_0: next((round(x[0], 3), round(x[1], 3)) for x in plot_0 if x[0] > point),
-                 label_1: next((round(x[0], 3), round(x[1], 3)) for x in plot_1 if x[0] > point)}
+                {label_0: next(x for x in plot_0 if x[0] > point),
+                 label_1: next(x for x in plot_1 if x[0] > point)}
                 for point in points}
             for point in points:
-                ax.annotate(label_0+(' (%s, %s)\n' % coords[point][label_0])+label_1+(' (%s, %s)' % coords[point][label_1]),
-                            xy=coords[point][label_0], textcoords='data', fontsize=18, va="top", ha="left", bbox=dict(boxstyle="round4", fc="w"))
+                ax.annotate(label_0+(' (${1:0.3f}$, ${1:0.3f}$)\n'.format(coords[point][label_0][0], coords[point][label_0][1]))+label_1+(' (${1:0.3f}$, ${1:0.3f}$)'.format(coords[point][label_1][0], coords[point][label_1][1])),
+                            xy=coords[point][label_0], textcoords='data', fontsize=18, va="top", ha="left", bbox=dict(boxstyle="square", fc="w"))
     
             ax.grid(True)
             ax.set_xlabel("False Positive Rate", fontsize=20)

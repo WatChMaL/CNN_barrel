@@ -9,7 +9,7 @@ Merges numpy arrays into an hdf5 file
 '''
 
 GAMMA = 0 # 0 is the label for gamma events
-ROOT_DUMP = 'ROOT.txt'
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     dtype_energies_prev=None
     dtype_positions_prev=None
     
-    dtype_PATHS_prev=None
+    dtype_PATHS_prev=h5py.special_dtype(vlen=str)
     dtype_IDX_prev=None
     
     for file_name in files:
@@ -73,15 +73,14 @@ if __name__ == '__main__':
         if not os.path.isfile(file_name):
             raise ValueError(
                 file_name+" is not a regular file or does not exist")
-        #the encoding is set by default to read files written out using python 2
-        info = np.load(file_name,encoding=config.encoding)
+        info = np.load(file_name)
         x_data = info['event_data']
         labels = info['labels']
         energies = info['energies']
         positions = info['positions']
         
-        PATHS = info['PATHS']
-        IDX = info['IDX']
+        PATHS = info['root_files']
+        IDX = info['event_ids']
         
         i += 1
         shape = x_data.shape
@@ -117,8 +116,6 @@ if __name__ == '__main__':
         dtype_labels_prev=labels.dtype
         dtype_energies_prev=energies.dtype
         dtype_positions_prev=positions.dtype
-        
-        dtype_PATHS_prev=PATHS.dtype
         dtype_IDX_prev=IDX.dtype
            
         total_rows += shape[0]
@@ -143,10 +140,10 @@ if __name__ == '__main__':
                                  shape=(total_rows,),
                                  dtype=dtype_labels_prev)
     
-    dset_PATHS=f.create_dataset("PATHS",
+    dset_PATHS=f.create_dataset("root_files",
                                 shape=(total_rows,),
                                 dtype=dtype_PATHS_prev)
-    dset_IDX=f.create_dataset("IDX",
+    dset_IDX=f.create_dataset("event_ids",
                               shape=(total_rows,),
                               dtype=dtype_IDX_prev)
     
@@ -184,8 +181,8 @@ if __name__ == '__main__':
             energies = np.sum(energies, axis=1).reshape(-1,1)
             positions = positions[:,0,:].reshape(-1, 1,3)
         
-        PATHS = info['PATHS']
-        IDX = info['IDX']
+        PATHS = info['root_files']
+        IDX = info['event_ids']
         
         i += 1
         
