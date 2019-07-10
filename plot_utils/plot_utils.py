@@ -423,7 +423,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
 # TODO: fix
 # Plot signal efficiency for a given event type at different energies
 def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
-                           avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
+                           avg_efficiencies=None, avg_efficiency_colors=None,
                            energy_interval=25, min_energy=100, max_energy=1000,
                            num_bins=100, show_plot=False, save_path=None):
     
@@ -456,11 +456,6 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
           save_path[optional]   ... Path to save the plot to, format='eps', default=None
     """
     
-    # Assertions to check for valid inputs
-    assert softmaxes is not None
-    assert labels is not None
-    assert energies is not None
-    
     # Need high number of bins to avoid empty values
     assert num_bins >= 100
     assert label_0 in softmax_index_dict.keys()
@@ -477,39 +472,69 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
                                                                                show_plot=False)
     
     thresholds = []
-    tolerance = 0.25
+    TOLERANCE = 0.25
     
-    # Get the index o
-    for tpr_value in avg_efficiencies:
-        
-        index_list = []
-        
-        for i in range(len(tpr_1)):
-            if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
-                index_list.append(i)
-                
-        # If no threshold found near tpr_value, approximate with neighboring points
-        if(len(index_list) == 0):
-            lower_tpr, lower_index, upper_index, upper_tpr = 0, 0, 0, 1
-            for i in range(len(tpr_1)):
-                if(tpr_1[i] < tpr_value and tpr_1[i] > lower_tpr):
-                    lower_index = i
-                    lower_tpr = tpr_1[i]
-                if(tpr_1[i] > tpr_value):
-                    upper_index = i
-                    upper_tpr = tpr_1[i]
-                    break
-            # If no points near enough, data is insufficient to generate meaningful plot
-            if(upper_tpr - lower_tpr > tolerance):
-                print("""plot_utils.plot_signal_efficiency() : Unable to calculate threshold for average_efficiency =  
-                     {0}""".format(tpr_value))
-                return None
-            else:
-                thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
+    # If threshold values are specified, find associated indices
+    if avg_efficiencies is not None:
+        for tpr_value in avg_efficiencies:
+            index_list = []
             
-        else:
-            index = index_list[math.floor(len(index_list)/2)]
-            thresholds.append(round(threshold_1[index], 2))
+            for i in range(len(tpr_1)):
+                if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
+                    index_list.append(i)
+                    
+            # If no threshold found near tpr_value, approximate with neighboring points
+            if(len(index_list) == 0):
+                lower_tpr, lower_index, upper_index, upper_tpr = 0, 0, 0, 1
+                for i in range(len(tpr_1)):
+                    if(tpr_1[i] < tpr_value and tpr_1[i] > lower_tpr):
+                        lower_index = i
+                        lower_tpr = tpr_1[i]
+                    if(tpr_1[i] > tpr_value):
+                        upper_index = i
+                        upper_tpr = tpr_1[i]
+                        break
+                # If no points near enough, data is insufficient to generate meaningful plot
+                if(upper_tpr - lower_tpr > TOLERANCE):
+                    print("""plot_utils.plot_signal_efficiency() : Unable to calculate threshold for average_efficiency =  
+                         {0}""".format(tpr_value))
+                    return None
+                else:
+                    thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
+                
+            else:
+                index = index_list[math.floor(len(index_list)/2)]
+                thresholds.append(round(threshold_1[index], 2))
+                
+    # Otherwise, scan over efficiency space (0,1) for 3 representative efficiencies/thresholds
+    else:
+        avg_efficiencies = []
+        
+        rem = 3
+        INCR = 0.05
+        JUMP = 5
+        
+        idx = 0
+        while rem > 0:    
+            index_list = []
+            
+            tpr_value = idx*INCR
+            if tpr_value > 1: break
+        
+            for i in range(len(tpr_1)):
+                if(math.fabs(tpr_1[i]-tpr_value) < 0.01):
+                    index_list.append(i)
+                    
+            # If no threshold found near tpr_value, go to next
+            if(len(index_list) == 0):
+                idx += 1
+            else:
+                avg_efficiencies.append(tpr_value)
+                index = index_list[math.floor(len(index_list)/2)]
+                thresholds.append(round(threshold_1[index], 2))
+                
+                idx += JUMP
+                rem -= 1
 
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
     energy_lb = [min_energy+(energy_interval*i) for i in range(math.ceil((max_energy-min_energy)/energy_interval))]

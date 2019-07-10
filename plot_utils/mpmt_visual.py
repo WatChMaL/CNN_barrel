@@ -6,6 +6,7 @@ Author: Julian Ding
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from math import sqrt, ceil
 
 # 10x10 square represents one mPMT
@@ -35,11 +36,13 @@ POS_MAP = [(8,4), #0
 # order when provided with a list of events
 def plot_events(data_list, save_path):
     dlist = process(data_list)
+    maximum = np.amax(dlist)
     # Error checking
     if dlist is None:
         return
     # Plot
-    width = ceil(sqrt(dlist.shape[0]))
+    nevents = dlist.shape[0]
+    width = ceil(sqrt(nevents))
     fig, axes = plt.subplots(width, width, sharex='col', sharey='row')
     event = 0
     # Tile the figure with subplots
@@ -47,14 +50,23 @@ def plot_events(data_list, save_path):
         for f in row:
             curr = dlist[event]
             img = plot_single_image(curr)
-            f.imshow(img)
-            event += 1
-            f.set_title(str(event)+'/'+str(dlist.shape[0]))
-    # Save plot
-    plt.savefig(save_path)
+            
+            f.imshow(img, origin="upper", cmap="inferno", norm=LogNorm(vmax=maximum, clip=True))
+            # Turn off axis labels and ticks
+            f.axis('off')
     
-    plt.clf() # Clear the plot frame
-    plt.close() # Close the opened window if any
+            event += 1
+            f.set_title(str(event)+'/'+str(nevents), fontsize=5)
+            
+            if event >= nevents:
+                # Clean up plot
+                plt.tight_layout(pad=0.1)
+                # Save plot
+                plt.savefig(save_path, dpi=600)
+                
+                plt.clf() # Clear the plot frame
+                plt.close() # Close the opened window if any
+                return
 
 # Function to get a 2D list (i.e. a list of lists, NOT a 2D numpy array)
 # of mPMT subplots (numpy arrays) representing a single event
@@ -76,23 +88,16 @@ def plot_single_image(data, padding=1):
     rows = data.shape[0]
     cols = data.shape[1]
     # Make empty output pixel grid
-    output = np.zeroes(((10+padding)*rows-padding, (10+padding*cols)-padding))
+    output = np.zeros(((10+padding)*rows-padding, (10+padding)*cols-padding))
     i, j = 0, 0
     for row in range(rows):
         for col in range(cols):
-            pmts = data[row, col]
+            pmts = data[row][col]
             tile(output, (i, j), pmts)
             j += 10+padding
         i += 10+padding
         j = 0
     return output
-
-# Helper function to generate a 10x10 array representing an mPMT module
-def make_mpmt(pmt_array):
-    mpmt = np.zeros((10, 10))
-    for i, val in enumerate(pmt_array):
-        mpmt[POS_MAP[i][0]][POS_MAP[i][1]] = val
-    return mpmt
             
 # Helper function to tile a canvas with mpmt subplots (in-place)
 def tile(canvas, ul, pmts):
@@ -103,21 +108,26 @@ def tile(canvas, ul, pmts):
     for row in range(10):
         for col in range(10):
             canvas[row+ul[0]][col+ul[1]] = mpmt[row][col]
+
+# Helper function to generate a 10x10 array representing an mPMT module
+def make_mpmt(pmt_array):
+    mpmt = np.zeros((10, 10))
+    for i, val in enumerate(pmt_array):
+        mpmt[POS_MAP[i][0]][POS_MAP[i][1]] = val
+    return mpmt
             
 # Helper function to process input data and extract only the 19 layers
 # associated with charge (chrg=True) or timing (chrg=False) information for plotting
-def process(data_list, chrg=True):
-    # Convert data into numpy array if necessary
-    data_list = np.asarray(data_list)
+def process(events, chrg=True):
     # Check data shape matches (n, 16, 40, 19 or 38)
-    if len(data_list.shape) == 4 and data_list.shape[1:3] == (16, 40) and (data_list.shape[-1] == 19 or data_list.shape[-1] == 38):
-        if data_list.shape[-1] == 38:
+    if len(events.shape) == 4 and events.shape[1:3] == (16, 40) and (events.shape[-1] == 19 or events.shape[-1] == 38):
+        if events.shape[-1] == 38:
             if chrg:
-                data_list = data_list[:,:,:,:19]
+                events = events[:,:,:,:19]
             else:
-                data_list = data_list[:,:,:,19:]
+                events = events[:,:,:,19:]
                 
-        return data_list
+        return events
     else:
-        print("Invalid data shape (required: n, 16, 40, 19 or 38), aborting")
+        print("Invalid data shape {actual:", events.shape, "| required: (n, 16, 40, 19 or 38)}, aborting")
         return None
