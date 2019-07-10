@@ -436,8 +436,7 @@ def per_event(data, func):
 
 # Helper function to check input data shape
 def check_data(data):
-    assert len(data.shape) == 4, "Invalid data shape (required: n, 16, 40, 19), aborting"
-    assert data.shape[1:] == (16, 40, 19), "Invalid data shape (required: n, 16, 40, 19), aborting"
+    assert len(data.shape) ==4 and data.shape[1:] == (16, 40, 19), "Invalid data shape (required: n, 16, 40, 19), aborting"
     
 # Main
 if __name__ == "__main__":

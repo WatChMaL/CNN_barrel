@@ -44,9 +44,13 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
         arghandler.Argument('batch_size_train', int, '-tnb',
                             default=16, help='Batch size for training.'),
         arghandler.Argument('batch_size_val', int, '-vlb',
-                            default=1024, help='Batch size for validation.'),
+                            default=1024, help='Batch size for validation. This also applies to early-stopping validation.'),
         arghandler.Argument('batch_size_test', int, '-tsb',
                             default=1024, help='Batch size for testing.'),
+        arghandler.Argument('es_batches', int, '-esn',
+                            default=8, help='Number of batches to run for early-stopping. If 0, early-stopping is turned off.'),
+        arghandler.Argument('es_valid_interval', int, '-esi',
+                            default=128, help='Run early-stopping validation every n training batches. Must be a positive integer.'),
         arghandler.Argument('num_workers', int, '-wkr',
                             default=2, help='Number of subprocesses to load data onto.'),
         arghandler.Argument('tasks',list, list_dtype=str, flag='-do',
@@ -113,7 +117,7 @@ if __name__ == '__main__':
         nnet.restore_state(config.restore_state)
     if 'train' in config.tasks:
         print("Number of epochs :", config.epochs)
-        nnet.train(epochs=config.epochs)
+        nnet.train(epochs=config.epochs, valid_interval=config.es_valid_interval, valid_batches=config.es_batches)
     if 'test' in config.tasks:
         nnet.test()
     if 'valid' in config.tasks:

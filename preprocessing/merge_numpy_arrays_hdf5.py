@@ -65,10 +65,8 @@ if __name__ == '__main__':
     dtype_PATHS_prev=h5py.special_dtype(vlen=str)
     dtype_IDX_prev=None
     
+    print('')
     for file_name in files:
-        print("Loading " + file_name)
-        print(str(i)+"/"+str(len(files)))
-
         #check that we have a regular file
         if not os.path.isfile(file_name):
             raise ValueError(
@@ -84,8 +82,6 @@ if __name__ == '__main__':
         
         i += 1
         shape = x_data.shape
-        
-        print("Array shape" + str(shape))
 
         #check the shape compatibility
         if prev_shape is not None:
@@ -120,6 +116,7 @@ if __name__ == '__main__':
            
         total_rows += shape[0]
         
+        print("\rLoaded "+os.path.basename(file_name)+' ('+str(i)+'/'+str(len(files))+')'+' | '+"Array shape"+str(shape)+'\t\t', end='')
             
         del x_data
         del labels
@@ -129,7 +126,7 @@ if __name__ == '__main__':
         del IDX
         del info
 
-    print("We have {} total events".format(total_rows))
+    print("\nWe have {} total events".format(total_rows))
 
     print("opening the hdf5 file\n")
     f=h5py.File(config.output_file[0],'w')
@@ -164,10 +161,8 @@ if __name__ == '__main__':
 
     offset=0
     
+    print('')
     for file_name in files:
-
-        print("Loading " + file_name)
-        print(str(i)+"/"+str(len(files)))
         
         info = np.load(file_name,encoding=config.encoding)
         x_data = info['event_data']
@@ -188,8 +183,6 @@ if __name__ == '__main__':
         
         offset_next=offset+shape[0]
         
-        print("Array shape" + str(shape))
-        
         dset_event_data[offset:offset_next,:]=x_data
         dset_labels[offset:offset_next]=labels
         dset_energies[offset:offset_next,:]=energies
@@ -199,6 +192,9 @@ if __name__ == '__main__':
         dset_IDX[offset:offset_next]=IDX
         
         offset=offset_next
+        
+        print("\r("+str(i)+"/"+str(len(files))+')'+" | Loaded "+os.path.basename(file_name)+" for writing\t\t", end='')
+        
         del x_data
         del labels
         del energies
@@ -207,7 +203,7 @@ if __name__ == '__main__':
         del IDX
         del info
 
-
+    print('')
     # -- Save merged arrays
     print("Saving arrays")
     f.close()

@@ -420,6 +420,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
         
     return fpr_0, tpr_0, threshold_0, roc_auc_0, fpr_1, tpr_1, threshold_1, roc_auc_1
 
+# TODO: fix
 # Plot signal efficiency for a given event type at different energies
 def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
                            avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
@@ -466,7 +467,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
     assert label_1 in softmax_index_dict.keys()
     
     # Calculate the threshold here according to the desired average efficiencies
-    _, _, threshold_0, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
+    _, _, _, _, _, tpr_1, threshold_1, _ = plot_ROC_curve_one_vs_one(softmaxes, labels, 
                                                                                energies,
                                                                                softmax_index_dict,
                                                                                label_0,
@@ -487,8 +488,9 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
             if(math.fabs(tpr_1[i]-tpr_value) < 0.001):
                 index_list.append(i)
                 
+        # If no threshold found near tpr_value, approximate with neighboring points
         if(len(index_list) == 0):
-            lower_tpr, lower_index, upper_index, upper_tpr = 0.0, 0, 0, 1.0
+            lower_tpr, lower_index, upper_index, upper_tpr = 0, 0, 0, 1
             for i in range(len(tpr_1)):
                 if(tpr_1[i] < tpr_value and tpr_1[i] > lower_tpr):
                     lower_index = i
@@ -497,13 +499,14 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
                     upper_index = i
                     upper_tpr = tpr_1[i]
                     break
+            # If no points near enough, data is insufficient to generate meaningful plot
             if(upper_tpr - lower_tpr > tolerance):
                 print("""plot_utils.plot_signal_efficiency() : Unable to calculate threshold for average_efficiency =  
                      {0}""".format(tpr_value))
                 return None
             else:
                 thresholds.append(round((threshold_1[lower_index] + threshold_1[upper_index])/2, 2))
-                
+            
         else:
             index = index_list[math.floor(len(index_list)/2)]
             thresholds.append(round(threshold_1[index], 2))
@@ -525,7 +528,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
         energy_values = []
         
         # Value for the previous non-zero events
-        prev_non_zero_efficiency = 0.0
+        prev_non_zero_efficiency = 0
     
         # Iterate over the energy intervals computing the efficiency
         for energy_lower, energy_upper in zip(energy_lb, energy_ub):
@@ -542,11 +545,9 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
             total_true_events = np.sum(values)
             num_true_events_selected = np.sum(values[bins[:len(bins)-1] > threshold-epsilon])
             
-            curr_interval_efficiency = num_true_events_selected/total_true_events if total_true_events > 0 else 0
+            curr_interval_efficiency = num_true_events_selected/total_true_events if total_true_events > 0 else prev_non_zero_efficiency
 
-            if(curr_interval_efficiency == 0):
-                curr_interval_efficiency = prev_non_zero_efficiency
-            else:
+            if(curr_interval_efficiency != 0):
                 prev_non_zero_efficiency = curr_interval_efficiency
 
             # Add two times once for the lower energy bound and once for the upper energy bound
@@ -592,6 +593,7 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
     plt.clf() # Clear the current figure
     plt.close() # Close the opened window
         
+# TODO: something's broken here
 # Plot background rejection for a given event
 def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
                               avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
@@ -801,86 +803,6 @@ def plot_background_rejection(softmaxes, labels, energies, softmax_index_dict, l
     plt.clf() # Clear the plot frame
     plt.close() # Close the opened window if any
     
-# Plot the reconstructed vs actual events
-def plot_actual_vs_recon(actual_event, recon_event, label, energy, show_plot=False, save_path=None):
-    """
-    plot_actual_vs_event(actual_event=None, recon_event=None, show_plot=False, save_path=None):
-                           
-    Purpose : Plot the actual event vs event reconstructed by the VAE
-    
-    Args: actual_event        ... 3-D NumPy array with the event data, shape=(width, height, depth)
-          recon_event         ... 3-D NumPy array with the reconstruction data, shape = (width, height, depth)
-          label               ... Str with the true event label, e.g. "e", "mu", "gamma"
-          energy              ... Float value of the true energy of the event
-          show_plot[optional] ... Boolean to determine whether to show the plot, default=False
-          save_path[optional] ... Path to save the plot to, format='eps', default=None
-    """
-    
-    # Assertions
-    assert actual_event is not None
-    assert recon_event is not None
-    assert label is not None
-    assert energy is not None and energy > 0
-    assert len(actual_event.shape) == 3
-    assert len(recon_event.shape) == 3
-    
-    # Initialize the figure to plot the events
-    fig, axes = plt.subplots(2,1,figsize=(32,18))
-    plt.subplots_adjust(hspace=0.2)
-    
-    # Setup the plot
-    lognorm = LogNorm(vmax=max(np.amax(actual_event), np.amax(recon_event)), clip=True)
-    
-    # Setup the plot
-    if label is not "e":
-        sup_title = r"$\{0}$ event with true energy, $E = {1:.3f}$".format(label, energy)
-    else:
-        sup_title = r"${0}$ event with true energy, $E = {1:.3f}$".format(label, energy)
-        
-    fig.suptitle(sup_title, fontsize=30)
-    
-    # Plot the actual event
-    im_0 = axes[0].imshow(mpmt_visual.get_plot_array(actual_event), origin="upper", cmap="inferno", norm=lognorm)
-    
-    axes[0].set_title("Actual event display", fontsize=20)
-    axes[0].set_xlabel("PMT module X-position", fontsize=20)
-    axes[0].set_ylabel("PMT module Y-position", fontsize=20)
-    axes[0].grid(True, which="both", axis="both")
-    
-    ax0_cbar = fig.colorbar(im_0, extend='both', ax=axes[0])
-    ax0_cbar.set_label(r"Charge, $c$", fontsize=20)
-    
-    axes[0].tick_params(labelsize=20)
-    ax0_cbar.ax.tick_params(labelsize=20) 
-    
-    axes[0].set_xticklabels((axes[0].get_xticks()/10).astype(int))
-    axes[0].set_yticklabels((axes[0].get_yticks()/10).astype(int))
-    
-    # Plot the reconstructed event
-    im_1 = axes[1].imshow(mpmt_visual.get_plot_array(recon_event), origin="upper", cmap="inferno", norm=lognorm)
-    
-    axes[1].set_title("Reconstructed event display", fontsize=20)
-    axes[1].set_xlabel("PMT module X-position", fontsize=20)
-    axes[1].set_ylabel("PMT module Y-position", fontsize=20)
-    axes[1].grid(True, which="both", axis="both")
-    
-    ax1_cbar = fig.colorbar(im_1, extend='both', ax=axes[1])
-    ax1_cbar.set_label(r"Log charge, $c$", fontsize=20)
-    
-    axes[1].tick_params(labelsize=20)
-    ax1_cbar.ax.tick_params(labelsize=20)
-    
-    axes[1].set_xticklabels((axes[1].get_xticks()/10).astype(int))
-    axes[1].set_yticklabels((axes[1].get_yticks()/10).astype(int))
-    
-    if save_path is not None:
-        plt.savefig(save_path)
-    
-    if show_plot:
-        plt.show()
-        
-    plt.clf() # Clear the plot frame
-    plt.close() # Close the opened window if any
         
 # Plot model performance over the training iterations
 def plot_training(log_paths, model_names, model_color_dict, state_paths=[], downsample_interval=None, legend_loc=(0,0.8), show_plot=False, save_path=None):

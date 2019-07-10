@@ -36,8 +36,8 @@ class WCH5Dataset(Dataset):
         hdf5_energies=f["energies"]
         hdf5_positions=f["positions"]
         
-        hdf5_PATHS=f["PATHS"]
-        hdf5_IDX=f["IDX"]
+        hdf5_PATHS=f["root_files"]
+        hdf5_IDX=f["event_ids"]
 
         assert hdf5_event_data.shape[0] == hdf5_labels.shape[0]
 

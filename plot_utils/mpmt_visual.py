@@ -5,6 +5,8 @@ Author: Julian Ding
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+from math import sqrt, ceil
 
 # 10x10 square represents one mPMT
 # List of top-left pixel positions (row,col) for 2x2 grids representing PMTs 0 to 18
@@ -29,10 +31,34 @@ POS_MAP = [(8,4), #0
            (5,6), #17
            (4,4)] #18
 
+# Function to plot a figure of subplots containing visuals of events in sequential
+# order when provided with a list of events
+def plot_events(data_list, save_path):
+    dlist = process(data_list)
+    # Error checking
+    if dlist is None:
+        return
+    # Plot
+    width = ceil(sqrt(dlist.shape[0]))
+    fig, axes = plt.subplots(width, width, sharex='col', sharey='row')
+    event = 0
+    # Tile the figure with subplots
+    for row in axes:
+        for f in row:
+            curr = dlist[event]
+            img = plot_single_image(curr)
+            f.imshow(img)
+            event += 1
+            f.set_title(str(event)+'/'+str(dlist.shape[0]))
+    # Save plot
+    plt.savefig(save_path)
+    
+    plt.clf() # Clear the plot frame
+    plt.close() # Close the opened window if any
+
 # Function to get a 2D list (i.e. a list of lists, NOT a 2D numpy array)
 # of mPMT subplots (numpy arrays) representing a single event
 def get_mpmt_grid(data):
-    assert(len(data.shape) == 3 and data.shape[2] == 19)
     rows = data.shape[0]
     cols = data.shape[1]
     grid = []
@@ -47,7 +73,6 @@ def get_mpmt_grid(data):
 
 # Function to get a 2D array of pixels representing a single event
 def plot_single_image(data, padding=1):
-    assert(len(data.shape) == 3 and data.shape[2] == 19)
     rows = data.shape[0]
     cols = data.shape[1]
     # Make empty output pixel grid
@@ -56,7 +81,7 @@ def plot_single_image(data, padding=1):
     for row in range(rows):
         for col in range(cols):
             pmts = data[row, col]
-            output = tile(output, (i, j), pmts)
+            tile(output, (i, j), pmts)
             j += 10+padding
         i += 10+padding
         j = 0
@@ -69,7 +94,7 @@ def make_mpmt(pmt_array):
         mpmt[POS_MAP[i][0]][POS_MAP[i][1]] = val
     return mpmt
             
-# Helper function to tile a canvas with mpmt subplots
+# Helper function to tile a canvas with mpmt subplots (in-place)
 def tile(canvas, ul, pmts):
     # First, create 10x10 grid representing single mPMT
     mpmt = make_mpmt(pmts)
@@ -78,3 +103,21 @@ def tile(canvas, ul, pmts):
     for row in range(10):
         for col in range(10):
             canvas[row+ul[0]][col+ul[1]] = mpmt[row][col]
+            
+# Helper function to process input data and extract only the 19 layers
+# associated with charge (chrg=True) or timing (chrg=False) information for plotting
+def process(data_list, chrg=True):
+    # Convert data into numpy array if necessary
+    data_list = np.asarray(data_list)
+    # Check data shape matches (n, 16, 40, 19 or 38)
+    if len(data_list.shape) == 4 and data_list.shape[1:3] == (16, 40) and (data_list.shape[-1] == 19 or data_list.shape[-1] == 38):
+        if data_list.shape[-1] == 38:
+            if chrg:
+                data_list = data_list[:,:,:,:19]
+            else:
+                data_list = data_list[:,:,:,19:]
+                
+        return data_list
+    else:
+        print("Invalid data shape (required: n, 16, 40, 19 or 38), aborting")
+        return None

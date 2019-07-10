@@ -31,8 +31,6 @@ import plot_utils.result_visualizer as rv
 
 from training_utils.doublepriorityqueue import DoublePriority
 
-# Directory of file containing ordered list of ROOT file directories for traceback
-ROOT_DUMP = 'ROOTS.txt'
 # Directory containing saved states
 STATE_DIR = 'saved_states/'
 # Name of file containing saved validation data
@@ -200,6 +198,11 @@ class Engine:
         # Keep track of the validation accuracy
         best_val_acc = 0.0
         continue_train = True
+        run_es = valid_batches > 0 and valid_interval > 0
+        if run_es:
+            print("Early-stopping is ACTIVE with validation steps of", valid_batches, "batches.")
+        else:
+            print("Early-stopping is INACTIVE.")
         
         # Prepare attributes for data logging
         self.train_log, self.val_log, self.best_states = CSVData(os.path.join(self.dirpath, TRAIN_LOG)), CSVData(os.path.join(self.dirpath, VAL_LOG)), CSVData(os.path.join(self.dirpath, BEST_LOG))
@@ -238,8 +241,8 @@ class Engine:
                         print('\r', end='')
                     print('... Iteration %d ... Epoch %1.2f ... Loss %1.3f ... Accuracy %1.3f' % (iteration,epoch,res['loss'],res['accuracy']), end='')
                     
-                # more rarely, run validation
-                if (i+1)%valid_interval == 0:
+                # Run validation every valid_interval training batches
+                if run_es and (i+1)%valid_interval == 0:
                     with torch.no_grad():
                         # self.model.eval()
                         # val_data = next(iter(self.val_iter))
@@ -384,7 +387,6 @@ class Engine:
         
         # If requested, dump list of root files + indices to save_path directory
         if pushing:
-            root_path = (os.path.dirname(self.config.path)+'/' if self.config.root is None else self.config.root)+ROOT_DUMP
             plot_path = os.path.join(self.config.save_path, "extreme_events/")
             if not os.path.exists(plot_path):
                 os.mkdir(plot_path)
@@ -398,17 +400,13 @@ class Engine:
                 # Highest softmax are best
                 best.extend(q.getlargest())
                 
-            root_list = open(root_path, 'r')
-            root_files = [l.strip() for l in root_list.readlines()]
-                
             for event in worst:
-                wl_lo.write(str(event[0])+' '+root_files[event[1]]+' '+str(event[2])+'\n')
+                wl_lo.write(str(event[0])+' '+event[1]+' '+str(event[2])+'\n')
             for event in best:
-                wl_hi.write(str(event[0])+' '+root_files[event[1]]+' '+str(event[2])+'\n')
+                wl_hi.write(str(event[0])+' '+event[1]+' '+str(event[2])+'\n')
             
             wl_lo.close()
             wl_hi.close()
-            root_list.close()
             
             print("Dumped lists of extreme events at", plot_path)
         
@@ -530,75 +528,3 @@ class Engine:
                                  save_path=self.config.save_path)
         plot_result = rv.open_result(os.path.join(self.config.save_path, VAL_STATE) if plot_data_path is None else plot_data_path)
         rv.dump_validation_visuals(plot_result, save_path=self.config.save_path)
-        
-    # The function below is deprecated
-# =============================================================================
-#     def get_top_bottom_softmax(self, n_top=5, n_bottom=5, event_type=None, label_dict=None):
-#         r"""Return the events with the highest and lowest softmax scores for
-#             visualizing the model performance
-#         
-#         Parameters: None
-#         
-#         Outputs : 
-#             n_top = number of events with the highest softmax score to return
-#                     for the given event type
-#             n_bottom = number of events with the lowest softmax score to return
-#                        for the given event type
-#             event_type = type of neutrino event to get the event data for
-#             label_dict = dictionary that maps the event type to the labels
-#                          used in the label tensor
-#             
-#             
-#         Returns : Numpy array of event data for the events with the highest
-#                   and lowest softmax score
-#         
-#         """
-#         
-#         # Variables to add or remove events
-#         softmax_top = np.array([-1 for i in range(n_top)])
-#         softmax_bottom = np.array([2 for i in range(n_bottom)])
-#         
-#         # Iterate over the validation set to get the desired events
-#         with torch.no_grad():
-#             
-#             # Set the model to evaluation mode
-#             self.model.eval()
-#             
-#              # Extract the event data and label from the DataLoader iterator
-#             for val_data in iter(self.val_iter):
-#                 
-#                 self.data, self.label = val_data[0:2]
-#                 self.label = self.label.long()
-#                 
-#                 print(self.data.shape)
-#                 print(self.label.shape)
-#                 
-#                 # Use only the labels and event for the given event type
-#                 self.data = self.data[self.label == label_dict[event_type]]
-#                 self.label = self.label[self.label == label_dict[event_type]]
-#                 
-#                 print(self.data.shape)
-#                 print(self.label.shape)
-#             
-#                 result = self.forward(False)
-#                 
-#                 # Copy the tensors back to the CPU
-#                 self.label = self.label.to("cpu")
-#                 
-#                 # Sort the softmax output to get the indices for the top and 
-#                 # bottom events to return or save
-#                 softmax_indices_sorted = np.argsort(result["softmax"][:,label_dict[event_type]])
-#                 
-#                 # Get the indices for the top and bottom events
-#                 softmax_top_n = softmax_indices_sorted[softmax_indices_sorted.shape[0]-n_top:]
-#                 softmax_bottom_n = softmax_indices_sorted[:n_bottom]
-#                 
-#                 # Append the local top and bottom items to the global top and bottom items
-#                 softmax_top = np.append(softmax_top,
-#                                         result["softmax"][softmax_top_n,label_dict[event_type]])
-#                 softmax_bottom = np.append(softmax_bottom,
-#                                         result["softmax"][softmax_bottom_n,label_dict[event_type]])
-#                 
-#                 # Sort the global top and bottom softmax array and get the top and bottom sections
-#                 softmax_top 
-# ============================================================================
