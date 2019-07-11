@@ -333,6 +333,23 @@ def offset_arbitrary(data, offset=950, acc=None, apply=False):
     else:
         return acc
     
+# Function that applies min-max normalization: f(x) = [x-min(data)]/[max(data)-min(data)]
+def min_max(data, acc=None, apply=False):
+    check_data(data)
+    if apply:
+        if acc is None:
+            raise ACC_EXCEPTION
+        else:
+            minimum = acc[0]
+            maximum = acc[1]
+            return (data-minimum)/(maximum-minimum)
+    else:
+        if acc is None:
+            acc = [LARGE, 0]
+        curr_min = acc[0]
+        curr_max = acc[1]
+        return [min(np.amin(data), curr_min), max(np.amax(data), curr_max)]
+    
 # =============== Function compositions =================
     
 def offset_divide_by_mean(data, acc=None, apply=False):
