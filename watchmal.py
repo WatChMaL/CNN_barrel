@@ -29,8 +29,6 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
                             help='List of available GPUs.'),
         arghandler.Argument('path', str, '-pat',
                             default=None, help='Path to training dataset.'),
-        arghandler.Argument('root', str, '-roo',
-                            default=None, help='Path to ROOT file list directory if outside data directory.'),
         arghandler.Argument('subset', int, '-sub',
                             default=None, help='Number of data from training set to use.'),
         arghandler.Argument('shuffle', bool, '-shf',
@@ -100,9 +98,6 @@ if __name__ == '__main__':
         ioconfig.saveConfig(config, config.cfg)
     # Set save directory to under USER_DIR
     config.save_path = USER_DIR+config.save_path+('' if config.save_path.endswith('/') else '/')
-    # Add slash to root directory if needed
-    if config.root is not None:
-        config.root = config.root+('' if config.root.endswith('/') else '/')
     # Select requested model
     print('Selected architecture:', config.model)
     # Make sure the specified arguments can be passed to the model

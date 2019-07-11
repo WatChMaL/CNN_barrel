@@ -10,10 +10,8 @@ Notes:
     - Visualization dumping in training and validation are coupled to implementation
       of the result_visualizer module
 '''
-# ======================== TEST IMPORTS =====================================
 import collections
 import sys
-# ===========================================================================
 
 import torch
 from torch import optim
@@ -31,25 +29,30 @@ import plot_utils.result_visualizer as rv
 
 from training_utils.doublepriorityqueue import DoublePriority
 
+# ============================== CONSTANTS ====================================
+
 # Directory containing saved states
 STATE_DIR = 'saved_states/'
+# Directory containing text files pointing to extreme events
+EXTR_DIR = 'extreme_events/'
+LIST_LO = 'list_lo.txt'
+LIST_HI = 'list_hi.txt'
 # Name of file containing saved validation data
 VAL_STATE = 'val_state.npz'
 # Names of training and validation logs
 TRAIN_LOG = 'log_train.csv'
 VAL_LOG = 'val_test.csv'
 BEST_LOG = 'best_states.csv'
-
 # Names and labels corresponding to particle classes
 GAMMA, ELECTRON, MUON = 0, 1, 2
 EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
-
 # Flag to distinguish best-so-far save state
 BEST_FLAG = 'BEST'
 LATEST_FLAG = 'LATEST'
-
 # Accuracy threshold to define when a model is significantly better than a previous model
 ACC_THRESHOLD = 1e-3
+
+# =============================================================================
 
 class Engine:
     """The training engine 
@@ -350,7 +353,6 @@ class Engine:
                 
                 energy, PATH, IDX = val_data[2:5]
                 IDX = IDX.long().numpy()
-                PATH = PATH.long().numpy()
 
                 # Run the forward procedure and output the result
                 result = self.forward(False)
@@ -386,12 +388,13 @@ class Engine:
               "\nAvg val acc : ", val_acc/val_iterations)
         
         # If requested, dump list of root files + indices to save_path directory
+        # TODO: Resolve coupling with implementation of event_display in DataTools
         if pushing:
-            plot_path = os.path.join(self.config.save_path, "extreme_events/")
+            plot_path = os.path.join(self.config.save_path, EXTR_DIR)
             if not os.path.exists(plot_path):
                 os.mkdir(plot_path)
-            wl_lo = open(plot_path+'list_lo.txt', 'w+')
-            wl_hi = open(plot_path+'list_hi.txt', 'w+')
+            wl_lo = open(plot_path+LIST_LO, 'w+')
+            wl_hi = open(plot_path+LIST_HI, 'w+')
             worst, best = [], []
             for i in range(len(queues)):
                 q = queues[i]
