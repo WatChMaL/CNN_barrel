@@ -89,18 +89,3 @@ class KazuNet(nn.Module):
         x = self.en_fc3(x)
         
         return x
-        
-    # Encoder
-    
-    def encode(self, X):
-        return X
-    
-    # Reparameterization
-    
-    def reparameterize(self, X):
-        return X
-    
-    # Decoder
-    
-    def decode(self, X):
-        return X

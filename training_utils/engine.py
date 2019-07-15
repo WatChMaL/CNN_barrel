@@ -495,7 +495,7 @@ class Engine:
         # If saving a best state, update best_state attribute
         if not os.path.isdir(self.state_dir):
             os.mkdir(self.state_dir)
-        filename = self.state_dir+str(self.config.model[1])+"_"+curr_iter_str
+        filename = self.state_dir+str(self.config.model[1] if len(self.config.model) > 1 else self.config.model[0])+"_"+curr_iter_str
         if os.path.exists(filename):
             os.remove(filename)
         # Save parameters

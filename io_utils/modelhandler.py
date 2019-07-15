@@ -46,14 +46,17 @@ def print_models():
 # REQUIRES: All constructors across all models must SHARE THE SAME PARAMETERS,
 #           otherwise calling this function may break the program
 def select_model(select_params):
-    assert(len(select_params) == 2)
+    assert len(select_params) == 1 or len(select_params) == 2, "Invalid number of model parameters specified ("+str(len(select_params))+")"
     name = select_params[0]
-    constructor = select_params[1]
+    if len(select_params) == 1:
+        constructor = intuit_constructor(name)
+    else:
+        constructor = select_params[1]
     # Make sure the specified model exists
     assert(name in models.__all__)
     model = importlib.import_module(MODELS_DIR+'.'+name)
     # Make sure the specified constructor exists
-    assert(constructor in dir(model))
+    assert constructor in dir(model), "Specified constructor "+constructor+" is not implemented in model "+name
     # Return specified constructor
     return getattr(model, constructor)
 
