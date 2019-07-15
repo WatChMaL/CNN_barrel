@@ -16,7 +16,7 @@ import os
 import argparse
 import h5py
 import numpy as np
-from math import ceil, floor
+from math import ceil, floor, sqrt
 
 # Key for data dimension that requires normalization
 NORM_CAT = 'event_data'
@@ -36,7 +36,7 @@ def parse_args():
                         help="path to dataset to normalize")
     parser.add_argument('--output_file', '-out', dest="output_file", type=str, nargs=1,
                         help="desired output path")
-    parser.add_argument('--block_size', '-blk', dest="block_size", type=int, default=3500,
+    parser.add_argument('--block_size', '-blk', dest="block_size", type=int, default=4096,
                         help="number of events to load into memory at once", required=False)
     parser.add_argument('--chrg_norm', '-cf', dest="chrg_norm_func", type=str, nargs=1, default=['identity'],
                         help="normalization function to apply to charge data", required=False)
@@ -349,6 +349,32 @@ def min_max(data, acc=None, apply=False):
         curr_min = acc[0]
         curr_max = acc[1]
         return [min(np.amin(data), curr_min), max(np.amax(data), curr_max)]
+
+# Function that applies Z-score normalization: f(x) = [x-mean(data)]/stdev(data)
+# Implementation note: sum((xi-u)^2) = (x1^2 + ... + xi^2) + 2u(x1 + ... + xi) + Nu^2
+#                   -> keep accumulator for (x1^2 + ... + xi^2) and another for (x1 + ... + xi)
+#                                            ^sum of squared hits                ^direct sum of hits
+def z_score(data, acc=None, apply=False):
+    check_data(data)
+    if apply:
+        if acc is None:
+            raise ACC_EXCEPTION
+        else:
+            sum_direct = acc[0]
+            sum_squared = acc[1]
+            num = acc[2]
+            
+            mean = sum_direct/num
+            stdev = sqrt((sum_squared + 2*mean*sum_direct + num*mean**2)/num)
+            
+            return (data-mean)/stdev
+    else:
+        if acc is None:
+            acc = [0, 0, 0]
+        acc[0] += np.sum(data)
+        acc[1] += np.sum(data**2)
+        acc[2] += data.size
+        return acc
     
 # =============== Function compositions =================
     

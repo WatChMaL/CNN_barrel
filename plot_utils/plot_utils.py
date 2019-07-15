@@ -423,7 +423,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
 # TODO: fix
 # Plot signal efficiency for a given event type at different energies
 def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, label_0, label_1,
-                           avg_efficiencies=None, avg_efficiency_colors=None,
+                           avg_efficiencies=[0.2, 0.5, 0.8], avg_efficiency_colors=None,
                            energy_interval=25, min_energy=100, max_energy=1000,
                            num_bins=100, show_plot=False, save_path=None):
     
@@ -507,23 +507,31 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
                 thresholds.append(round(threshold_1[index], 2))
                 
     # Otherwise, scan over efficiency space (0,1) for 3 representative efficiencies/thresholds
+    # Search pattern: scan forward 0 -> 1 until tpr found, then scan backward 1 -> 0 until second found, repeat.
     else:
         avg_efficiencies = []
         
         rem = 3
         INCR = 0.05
         JUMP = 5
+        reverse = False
+        bins = int(1/INCR)
+        seen_values = [False for i in range(bins)]
         
         idx = 0
-        while rem > 0:    
-            index_list = []
+        while rem > 0:
             
+            index_list = []
             tpr_value = idx*INCR
-            if tpr_value > 1: break
         
             for i in range(len(tpr_1)):
                 if(math.fabs(tpr_1[i]-tpr_value) < 0.01):
                     index_list.append(i)
+            
+            seen_values[idx] = True
+            
+            if all(seen_values):
+                break
                     
             # If no threshold found near tpr_value, go to next
             if(len(index_list) == 0):
@@ -532,9 +540,15 @@ def plot_signal_efficiency(softmaxes, labels, energies, softmax_index_dict, labe
                 avg_efficiencies.append(tpr_value)
                 index = index_list[math.floor(len(index_list)/2)]
                 thresholds.append(round(threshold_1[index], 2))
-                
-                idx += JUMP
                 rem -= 1
+                
+                if reverse:
+                    idx = ((bins-idx) + JUMP) % bins
+                else:
+                    idx = (bins - idx - JUMP - 1) % bins
+                    
+                while seen_values[idx]:
+                    idx = (idx + 1) % bins
 
     # Get the energy intervals to plot the signal efficiency against ( replace with max(energies) ) 
     energy_lb = [min_energy+(energy_interval*i) for i in range(math.ceil((max_energy-min_energy)/energy_interval))]
