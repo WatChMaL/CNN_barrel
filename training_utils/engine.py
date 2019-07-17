@@ -49,8 +49,8 @@ EVENT_CLASS = {GAMMA : 'gamma', ELECTRON : 'electron', MUON : 'muon'}
 # Flag to distinguish best-so-far save state
 BEST_FLAG = 'BEST'
 LATEST_FLAG = 'LATEST'
-# Accuracy threshold to define when a model is significantly better than a previous model
-ACC_THRESHOLD = 1e-3
+# Loss threshold to define when a model is significantly better than a previous model
+LOSS_THRESHOLD = 1e-3
 
 # =============================================================================
 
@@ -199,7 +199,7 @@ class Engine:
         # (variable names changed to match new Engine architecture. Added comments and minor debugging)
         
         # Keep track of the validation accuracy
-        best_val_acc = 0.0
+        best_val_loss = 0.0
         continue_train = True
         run_es = valid_batches > 0 and valid_interval > 0
         if run_es:
@@ -263,8 +263,8 @@ class Engine:
                     self.model.train()
                     continue_train = True
                     # Save best-so-far training state and record its position in the training log
-                    if(res["accuracy"]-best_val_acc > ACC_THRESHOLD):
-                        best_val_acc = res["accuracy"]
+                    if(best_val_loss-res["loss"] > LOSS_THRESHOLD):
+                        best_val_loss = res["loss"]
                         self.save_state(curr_iter_str=BEST_FLAG)
                         self.best_states.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.best_states.write()
