@@ -87,7 +87,7 @@ class Engine:
 
         self.model.to(self.device)
 
-        self.optimizer = optim.Adam(self.model.parameters(),eps=1e-3)
+        self.optimizer = optim.Adam(self.model.parameters(),eps=1e-3,weight_decay=config.l2_lambda)
         self.criterion = nn.CrossEntropyLoss()
         self.softmax = nn.Softmax(dim=1)
 

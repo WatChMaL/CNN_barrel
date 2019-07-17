@@ -8,18 +8,20 @@ import importlib
 import os
 import sys
 import inspect
-import string
 
 MODELS_DIR = 'models'
 models = importlib.import_module(MODELS_DIR)
 
 # Helper function to find constructor name
+# REQUIRES: The model name string when stripped to "___net" must have a
+#           corresponding class in the module named "[Capitalized]Net"
+#           (ex. resnet_dropout -> ResNet)
 def intuit_constructor(name):
-    if name.endswith('net'):
-        constructor = name[:-3].capitalize() + 'Net'
+    if 'net' in name:
+        constructor = name.split('net', 1)[0].capitalize() + 'Net'
         return constructor
     else:
-        print('\tCannot intuit constructor from architecture name that is not of form "____net".\n')
+        print('\tCannot intuit constructor from architecture name that is not of form "*net*".\n')
         return name
 
 # Prints list of all models and constructors associated with each model
@@ -61,14 +63,15 @@ def select_model(select_params):
     return getattr(model, constructor)
 
 # Check if an argument list is valid for a specified model; stops program if not
-# REQUIRES: argslist is a kwargs-interpretable dictionary and digit-stripped model string
-#           is a valid module in the models package
+# REQUIRES: argslist is a kwargs-interpretable dictionary and specified model string
+#           is a valid module in the models package.
 def check_params(model, argslist):
-    model = model.rstrip(string.digits)
-    mod = importlib.import_module(MODELS_DIR+'.'+model)
-    constructor = intuit_constructor(model)
-    assert(constructor in dir(mod))
-    valid_args = inspect.getfullargspec(getattr(mod, constructor).__init__).args
+    name = model[0]
+    base = intuit_constructor(name)
+    constructor = base if len(model) < 2 else model[1]
+    mod = importlib.import_module(MODELS_DIR+'.'+model[0])
+    assert constructor in dir(mod), "Cannot find constructor named "+constructor+" in implementation of "+model[0]
+    valid_args = inspect.getfullargspec(getattr(mod, base).__init__).args
     for arg in argslist.keys():
-        assert(arg in valid_args)
+        assert arg in valid_args, "Argument "+str(arg)+" is not in the list of valid arguments for constructor "+constructor+" "+str(valid_args)
     print('Params OK:', argslist)

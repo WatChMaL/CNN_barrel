@@ -33,6 +33,8 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
                             default=None, help='Number of data from training set to use.'),
         arghandler.Argument('shuffle', bool, '-shf',
                             default=True, help='Specify whether or not to shuffle training dataset. Default is True.'),
+        arghandler.Argument('l2_lambda', float, '-l2l',
+                            default=0, help='Specify lambda (weight) for L2 regularization.'),
         arghandler.Argument('val_split', float, '-vas',
                             default=0.1, help='Fraction of dataset used in validation.'),
         arghandler.Argument('test_split', float, '-tes',
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     print('Selected architecture:', config.model)
     # Make sure the specified arguments can be passed to the model
     params = ioconfig.to_kwargs(config.params)
-    modelhandler.check_params(config.model[0], params)
+    modelhandler.check_params(config.model, params)
     constructor = modelhandler.select_model(config.model)
     model = constructor(**params)
     # Finally, construct the neural net
