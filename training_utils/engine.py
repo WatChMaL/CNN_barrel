@@ -199,11 +199,11 @@ class Engine:
         # (variable names changed to match new Engine architecture. Added comments and minor debugging)
         
         # Keep track of the validation accuracy
-        best_val_loss = 0.0
+        best_val_loss = 1e10
         continue_train = True
         run_es = valid_batches > 0 and valid_interval > 0
         if run_es:
-            print("Early-stopping is ACTIVE with validation steps of", valid_batches, "batches.")
+            print("Early-stopping is ACTIVE with validation steps of", valid_batches, "batches of size", self.config.batch_size_val)
         else:
             print("Early-stopping is INACTIVE.")
         
@@ -314,7 +314,7 @@ class Engine:
                 if len(candidates) > 0:
                     self.restore_state(candidates[0])
                 else:
-                    print("Warning: attempted to restore best state but no best state weight file was detected.")
+                    print("Warning: attempted to restore best state from", self.state_dir,"but no best state weight file was detected.")
             except FileNotFoundError:
                 print ("Warning:", self.state_dir, "directory not found, cannot restore best state.")
         

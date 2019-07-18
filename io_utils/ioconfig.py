@@ -98,4 +98,20 @@ def saveConfig(config, outFile):
 # Function to convert a list of strings into a kwargs-interpretable dict
 def to_kwargs(arglist):
     args = [arg.split(ARG_DELIM) for arg in arglist]
-    return {x[0] : int(x[1]) for x in args}
+    return {x[0] : parse_arg(x[1]) for x in args}
+
+# Function to convert a string into an argument with the correct type
+def parse_arg(arg):
+    # If argument string is enclosed with quotes, parse as string
+    if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
+        return arg[1:-1]
+    # Otherwise, check if arg is an integer
+    try: return int(arg)
+    except:
+        ValueError
+        # If not, check if arg is a float
+        try: return float(arg)
+        except:
+            ValueError
+            # If not, return string
+            return arg

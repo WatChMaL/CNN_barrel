@@ -34,7 +34,7 @@ def print_models():
         curr_model = importlib.import_module(MODELS_DIR+'.'+name)
         sys.stdout = sys.__stdout__
         
-        constructors = [x for x in dir(curr_model) if x.startswith(name)]
+        constructors = [x for x in dir(curr_model) if x.startswith(name.split('net', 1)[0]+'net')]
         for c in constructors:
             print('\t'+c)
         name = intuit_constructor(name)
