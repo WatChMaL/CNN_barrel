@@ -19,7 +19,8 @@ def parse_args():
                         help="txt file with a list of files to merge")
     parser.add_argument('output_file', type=str, nargs=1,
                         help="where do we put the output")
-    
+    parser.add_argument('--double_precision', '-dp', type=int, nargs=1, dest='double_precision',
+                        required=False, default=None, help='0 for single precision (32-bit); 1 for double precision (64-bit)')
     parser.add_argument("--encoding", type=str,default='ASCII',help="specifies encoding to be used for loading numpy arrays saved with python 2")
     
     args = parser.parse_args()
@@ -49,21 +50,37 @@ if __name__ == '__main__':
 
 
     # -- Start merging
-    i = 1
+    i = 0
     array_list = []
     
 
     total_rows = 0    
 
     prev_shape=None
-
-    dtype_data_prev=None
-    dtype_labels_prev=None
-    dtype_energies_prev=None
-    dtype_positions_prev=None
+    
+    if config.double_precision is None:
+        print("Precision not specified, intuiting precision from data arrays.")
+        dtype_data_prev=None
+        dtype_labels_prev=None
+        dtype_energies_prev=None
+        dtype_positions_prev=None
+        dtype_IDX_prev=None
+    elif config.double_precision[0] == 0:
+        print("Single-precision specified.")
+        dtype_data_prev=np.float32
+        dtype_labels_prev=np.int32
+        dtype_energies_prev=np.float32
+        dtype_positions_prev=np.float32
+        dtype_IDX_prev=np.int32
+    else:
+        print("Double-precision specified.")
+        dtype_data_prev=np.float64
+        dtype_labels_prev=np.int64
+        dtype_energies_prev=np.float64
+        dtype_positions_prev=np.float64
+        dtype_IDX_prev=np.int64
     
     dtype_PATHS_prev=h5py.special_dtype(vlen=str)
-    dtype_IDX_prev=None
     
     print('')
     for file_name in files:
@@ -103,20 +120,21 @@ if __name__ == '__main__':
                                                     shape[0],
                                                     labels[0]))
 
-        if dtype_data_prev is not None:
+        if config.double_precision is None and dtype_data_prev is not None:
             if x_data.dtype != dtype_data_prev or labels.dtype != dtype_labels_prev:
                raise ValueError("data types mismatch at file {}".format(
                    file_name))
-               
-        dtype_data_prev=x_data.dtype
-        dtype_labels_prev=labels.dtype
-        dtype_energies_prev=energies.dtype
-        dtype_positions_prev=positions.dtype
-        dtype_IDX_prev=IDX.dtype
+        
+        if config.double_precision is None:
+            dtype_data_prev=x_data.dtype
+            dtype_labels_prev=labels.dtype
+            dtype_energies_prev=energies.dtype
+            dtype_positions_prev=positions.dtype
+            dtype_IDX_prev=IDX.dtype
            
         total_rows += shape[0]
         
-        print("\rLoaded "+os.path.basename(file_name)+' ('+str(i)+'/'+str(len(files))+')'+' | '+"Array shape"+str(shape)+'\t\t', end='')
+        print("\rLoaded "+os.path.basename(file_name)+' ('+str(i)+'/'+str(len(files))+')'+' | '+"Array shape"+str(shape)+'          ', end='')
             
         del x_data
         del labels
@@ -165,19 +183,20 @@ if __name__ == '__main__':
     for file_name in files:
         
         info = np.load(file_name,encoding=config.encoding)
-        x_data = info['event_data']
-        labels = info['labels']
+        # Cast arrays to appropriate dtypes
+        x_data = info['event_data'].astype(dtype_data_prev)
+        labels = info['labels'].astype(dtype_labels_prev)
         
-        energies = info['energies']
-        positions = info['positions']
+        energies = info['energies'].astype(dtype_energies_prev)
+        positions = info['positions'].astype(dtype_positions_prev)
         
         # Process gamma events (adapted from preprocessing_gamma.py by Abhishek Kajal)
         if labels.all() == GAMMA:
             energies = np.sum(energies, axis=1).reshape(-1,1)
             positions = positions[:,0,:].reshape(-1, 1,3)
         
-        PATHS = info['root_files']
-        IDX = info['event_ids']
+        PATHS = info['root_files'].astype(dtype_PATHS_prev)
+        IDX = info['event_ids'].astype(dtype_IDX_prev)
         
         i += 1
         
@@ -193,7 +212,7 @@ if __name__ == '__main__':
         
         offset=offset_next
         
-        print("\r("+str(i)+"/"+str(len(files))+')'+" | Loaded "+os.path.basename(file_name)+" for writing\t\t", end='')
+        print("\r("+str(i)+"/"+str(len(files))+')'+" | Loaded "+os.path.basename(file_name)+" for writing          ", end='')
         
         del x_data
         del labels

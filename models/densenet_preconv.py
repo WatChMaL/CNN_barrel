@@ -72,15 +72,22 @@ class DenseNet(nn.Module):
     def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16), preconv='wide',
                  num_input_channels=2,
                  num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000):
-        assert preconv in ['wide', 'long']
+        assert preconv[:4] in ['wide', 'long']
 
         super(DenseNet, self).__init__()
+        
         # Pre-densenet down-convolution layer
-        if preconv == 'wide':
+        if preconv.startswith('wide'):
             out_channels = num_input_channels
-            self.preconv = nn.Conv2d(num_input_channels, out_channels, kernel_size=3, stride=2, padding=0, bias=False)
-        elif preconv == 'long':
-            out_channels = 2
+            ksize = 3
+            strd = 2
+            if len(preconv) > 4:
+                ksize = int(preconv[4])
+                if len(preconv) > 5:
+                    strd = int(preconv[5])
+            self.preconv = nn.Conv2d(num_input_channels, out_channels, kernel_size=ksize, stride=strd, padding=0, bias=False)
+        elif preconv.startswith('long'):
+            out_channels = int(preconv[4:])
             self.preconv = nn.Conv2d(num_input_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
 
         # First convolution
