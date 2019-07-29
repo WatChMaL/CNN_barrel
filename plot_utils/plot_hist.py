@@ -11,13 +11,13 @@ Author: Julian Ding
 import os
 import argparse
 import numpy as np
-from math import ceil
+from math import ceil, sqrt
 import matplotlib.pyplot as plt
 from textwrap import wrap
 import h5py
 
 # Available plotting tasks
-TASKS = ['c', 't', 'p', 'h', 'e']
+TASKS = ['c', 't', 'p', 'h', 'e', 'v']
 
 # File extension to save histograms as
 EXT = '.pdf'
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument('--num_bins', '-bin', dest='num_bins', type=int, default=1000,
                         help="number of bins to separate data into in histograms", required=False)
     parser.add_argument('--to_plot', '-plt', dest='to_plot', type=str, nargs='+', default=TASKS,
-                        help="specify data to plot: c=charge, t=time, p=overlaid particle types, h=hit frequency, e=overlay single events", required=False)
+                        help="specify data to plot: "+TASKS[0]+"=charge, "+TASKS[1]+"=time, "+TASKS[2]+"=overlaid particle types, "+TASKS[3]+"=hit frequency, "+TASKS[4]+"=overlay single events, "+TASKS[5]+"=visible energy distribution", required=False)
     parser.add_argument('--show_plts', '-show', dest="show_plts", type=str, default=None,
                         help="use this flag to show plots", required=False)
     args = parser.parse_args()
@@ -65,6 +65,7 @@ def sample(infile, sample_size):
     file = h5py.File(infile)
     print("Successfully loaded dataset from", infile)
     data = file['event_data']
+    energies = file['energies']
     labels = file['labels']
     
     event_size = labels.size
@@ -88,12 +89,48 @@ def sample(infile, sample_size):
         print("Warning: uneven class distribution detected in dataset", {CLASSES[i] : counts[i] for i in range(counts.size)},
                                                                    "\n...Performing completely random sampling")
         sample_idx = np.random.choice(event_size, size=sample_size, replace=False)
-        sample_labels = np.asarray([labels[i] for i in sample_idx])
+
+    mask = np.zeros(event_size, dtype=bool)
+    mask[sample_idx] = True
+    sample_data = data[mask,:,:,:] 
+    sample_energies = energies[mask,:]
+    sample_labels = labels[mask]
     
-    sample_data = np.asarray([data[i] for i in sample_idx])
     file.close()
     
-    return (sample_data, sample_labels, event_size)
+    return (sample_data, sample_energies, sample_labels, event_size)
+
+# Function to convert from the true particle energies to visible energies
+# E_vis = gamma*mc^2 - gamma(at Cherenkov speed)*mc^2
+#       = total energy - energy at Cherenkov threshold
+def convert_to_visible_energy(energies, labels):
+    
+    """
+    convert_to_visible_energy(energies, labels)
+    
+    Purpose : Convert the true event energies to visible energy collected by the PMTs
+    
+    Args: energies ... 1D array of event energies, the length = sample size
+          labels   ... 1D array of true label value, the length = sample size
+    """
+    
+    # Convert true particle energies to visible energies
+    m_mu = 105.7
+    m_e = 0.511
+    m_p = 0.511
+
+    # Constant for the inverse refractive index of water
+    beta = 0.75
+
+    # Denominator for the scaling factor to be used for the cherenkov threshold
+    dem = sqrt(1 - beta**2)
+    
+    # Perform the conversion from true particle energy to visible energy
+    energies[labels == 0] -= (m_e + m_p)/dem
+    energies[labels == 1] -= m_e/dem
+    energies[labels == 2] -= m_mu/dem
+        
+    return energies.clip(0)
 
 # Dump a set of histograms from a single dataset
 def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
@@ -101,7 +138,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
     if not os.path.isdir(outpath):
         print("Making output directory for plots as", outpath)
         os.mkdir(outpath)
-    sample_data, sample_labels, event_size = sample(infile, sample_size)
+    sample_data, sample_energies, sample_labels, event_size = sample(infile, sample_size)
     sample_size = min(sample_size, event_size)
     print("Successfully prepared sampling subset of", sample_size, "events.")
     
@@ -110,12 +147,12 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
     
     fig_id = 0
     
-    if 'p' in to_plot or 'e' in to_plot:
+    if TASKS[2] in to_plot or TASKS[4] in to_plot:
         class_data = [sample_data[sample_labels == i] for i in range(len(CLASSES))]
     
     sample_ratio_str = str(sample_size).format(EPS)+" of "+str(event_size).format(EPS)
     
-    if 'c' in to_plot:
+    if TASKS[0] in to_plot:
         title = "Charge: "
         # Full histogram of PMT hit charges over all sampled events
         plot_single_hist(sample_chrg, bins, outpath, fig_id, title=title+"Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
@@ -126,7 +163,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                          xlabel="Charge", ylabel="Hits (log-scaled)", yscale="log", show=show)
         fig_id += 1
 
-        if 'p' in to_plot:
+        if TASKS[2] in to_plot:
             charge_dsets = [(CLASSES[i], dset[:,:,:,:19].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(charge_dsets, bins, outpath, fig_id,
@@ -139,7 +176,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                                xlabel="Charge", ylabel="Hits (log-scaled)", yscale='log', show=show)
             fig_id += 1
             
-        if 'e' in to_plot:
+        if TASKS[4] in to_plot:
             # Reshape data to (events, pmts per event)
             flat_gamma = class_data[0][:,:,:,:19].reshape(class_data[0].shape[0],-1)
             flat_electron = class_data[1][:,:,:,:19].reshape(class_data[1].shape[0],-1)
@@ -174,7 +211,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
             fig_id += 1
             
     
-    if 't' in to_plot:
+    if TASKS[1] in to_plot:
         title = "Timing: "
         # Full histogram of PMT hit timing over all sampled events
         plot_single_hist(sample_time, bins, outpath, fig_id, title=title+"Distribution Over All Event Types (Sampling "+sample_ratio_str+" events)",
@@ -185,7 +222,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                          xlabel="Time", ylabel="Hits (log-scaled)", yscale="log", show=show)
         fig_id += 1
         
-        if 'p' in to_plot:
+        if TASKS[2] in to_plot:
             time_dsets = [(CLASSES[i], dset[:,:,:,19:].reshape(-1,1)) for i, dset in enumerate(class_data)]
             # Overlaid histogram of PMT hit over particle classes
             plot_overlaid_hist(time_dsets, bins, outpath, fig_id,
@@ -198,7 +235,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                                xlabel="Time", ylabel="Hits (log-scaled)", yscale='log', show=show)
             fig_id += 1
             
-        if 'e' in to_plot:
+        if TASKS[4] in to_plot:
             # Reshape data to (events, pmts per event)
             flat_gamma = class_data[0][:,:,:,19:].reshape(class_data[0].shape[0],-1)
             flat_electron = class_data[1][:,:,:,19:].reshape(class_data[1].shape[0],-1)
@@ -232,7 +269,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                                  xlabel="Timing", ylabel="Hits", yscale='log', show=show)
             fig_id += 1
     
-    if 'h' in to_plot:
+    if TASKS[3] in to_plot:
         # Extract vector representing the number of hit PMTs for each event in sample_data
         hits_per_event = sample_data[:,:,:,:19].reshape(sample_data.shape[0], -1)
         hits_data = np.asarray([np.count_nonzero(event) for event in hits_per_event])
@@ -246,6 +283,22 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
                            xlabel="Hits", ylabel="Events", yscale='log', show=show)
         fig_id += 1
         
+    if TASKS[5] in to_plot:
+        # Plot visible energy distribution (energy above Cherenkov threshold)
+        vis_energies = convert_to_visible_energy(sample_energies, sample_labels)
+        vis_dsets = [(CLASSES[i], vis_energies[sample_labels == i]) for i in range(len(CLASSES))]
+        
+        # Plot overlaid histogram of different event classes
+        plot_overlaid_hist(vis_dsets, bins, outpath, fig_id, title="Visible Energy Distributions for Each Event Class (Sampling "+sample_ratio_str+" events)",
+                           xlabel="Visible Energy (MeV)", ylabel="Events", show=show)
+        
+        fig_id += 1
+        
+        # Log-scaled version of above
+        plot_overlaid_hist(vis_dsets, bins, outpath, fig_id, title="Log-Scaled Visible Energy Distributions for Each Event Class (Sampling "+sample_ratio_str+" events)",
+                           left=0, right=1200, xlabel="Visible Energy (MeV)", ylabel="Events (log-scaled)", yscale='log', show=show)
+        
+        fig_id += 1
 
 # Dump a set of histograms of multiple datasets overlaid
 def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
@@ -263,7 +316,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
     max_time = 0
     for file in files:
         filename = os.path.basename(file)
-        sample_data, _, event_size = sample(file, sample_size)
+        sample_data,_,_, event_size = sample(file, sample_size)
         chrg_data = sample_data[:,:,:,:19].reshape(-1,1)
         time_data = sample_data[:,:,:,19:].reshape(-1,1)
         chrg_dsets.append((filename, chrg_data))
@@ -279,7 +332,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
         size_str = str(sample_size).format(EPS)
         print("Successfully prepared sampling subset of", sample_size, "events from", filename)
         
-    if 'c' in to_plot:
+    if TASKS[0] in to_plot:
         # Overlaid charge histograms of normalization schemes
         plot_overlaid_hist(chrg_dsets, bins, outpath, 0,
                            title="Charge distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
@@ -289,7 +342,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
                            title="Log-scaled charge distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
                            xlabel="Charge", ylabel="Hits (log-scaled)", yscale='log', show=show)
     
-    if 't' in to_plot:
+    if TASKS[1] in to_plot:
         # Overlaid timing histograms of normalization schemes
         plot_overlaid_hist(time_dsets, bins, outpath, 2,
                            title="Timing distributions of multiple normalization schemes (sample size "+size_str+" for all datasets)",
@@ -302,7 +355,7 @@ def plot_overlaid_dsets(files, outpath, sample_size, bins, to_plot, show=False):
 # ========================= Plotting Functions ============================
 
 # Helper function to create a single histogram figure
-def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
+def plot_single_hist(sampled_data, bins, outpath, figure_id=0, left=None, right=None,
                      title=None, xlabel=None, ylabel=None, yscale=None, show=False):
     plt.figure(figure_id)
     histogram, edges, _ = plt.hist(sampled_data, bins, histtype='step', fill=False)
@@ -312,8 +365,8 @@ def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
     
     # Calculate and set left and right limits of dataset
     valids = np.arange(len(edges)-1)[histogram > SCALE_X]
-    left = edges[valids[0]]
-    right = edges[valids[-1]]
+    if left is None: left = edges[valids[0]]
+    if right is None: right = edges[valids[-1]]
     plt.xlim(left=left)
     plt.xlim(right=right)
     
@@ -330,7 +383,7 @@ def plot_single_hist(sampled_data, bins, outpath, figure_id=0,
 
 # Helper function to create a single histogram figure overlaid with multiple samples
 # Requires: dsets is a list of tuples (name, 1D flat data array)
-def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
+def plot_overlaid_hist(dsets, bins, outpath, figure_id=0, left=None, right=None,
                   title=None, xlabel=None, ylabel=None, yscale=None, show=False):
     plt.figure(figure_id)
     lefts, rights, tops = [], [], []
@@ -345,8 +398,8 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0,
 
     if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONT_TITLE)
     plt.legend(loc="upper right", fontsize=FONT_LEGEND)
-    plt.xlim(left=min(lefts))
-    plt.xlim(right=max(rights))
+    plt.xlim(left=left if left is not None else min(lefts))
+    plt.xlim(right=right if right is not None else max(rights))
     
     if xlabel is not None: plt.xlabel(xlabel)
     if ylabel is not None: plt.ylabel(ylabel)

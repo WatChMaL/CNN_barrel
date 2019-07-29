@@ -25,6 +25,8 @@ plt.style.use("classic")
 color_dict = {"gamma":"red", "e":"blue", "mu":"black"}
 
 # Function to convert from the true particle energies to visible energies
+# E_vis = gamma*mc^2 - gamma(at Cherenkov speed)*mc^2
+#       = total energy - energy at Cherenkov threshold
 def convert_to_visible_energy(energies, labels):
     
     """
@@ -45,18 +47,14 @@ def convert_to_visible_energy(energies, labels):
     beta = 0.75
 
     # Denominator for the scaling factor to be used for the cherenkov threshold
-    dem = math.sqrt(1 - beta**2)
+    dem = sqrt(1 - beta**2)
     
     # Perform the conversion from true particle energy to visible energy
-    for i in range(len(energies)):
-        if(labels[i] == 0):
-            energies[i] = max((energies[i] - (m_e / dem) - (m_p / dem)), 0)
-        elif(labels[i] == 1):
-            energies[i] = max((energies[i] - (m_e / dem)), 0)
-        elif(labels[i] == 2):
-            energies[i] = max((energies[i] - (m_mu / dem)), 0)
+    energies[labels == 0] -= (m_e + m_p)/dem
+    energies[labels == 1] -= m_e/dem
+    energies[labels == 2] -= m_mu/dem
         
-    return energies
+    return energies.clip(0)
 
 # Function to plot the energy distribution over a given dataset
 def plot_event_energy_distribution(energies, labels, label_dict, dset_type="full", show_plot=False, save_path=None):
