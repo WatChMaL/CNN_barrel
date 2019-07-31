@@ -67,18 +67,18 @@ if __name__ == '__main__':
         dtype_IDX_prev=None
     elif config.double_precision[0] == 0:
         print("Single-precision specified.")
-        dtype_data_prev=np.float32
-        dtype_labels_prev=np.int32
-        dtype_energies_prev=np.float32
-        dtype_positions_prev=np.float32
-        dtype_IDX_prev=np.int32
+        dtype_data_prev=np.dtype(np.float32)
+        dtype_labels_prev=np.dtype(np.int32)
+        dtype_energies_prev=np.dtype(np.float32)
+        dtype_positions_prev=np.dtype(np.float32)
+        dtype_IDX_prev=np.dtype(np.int32)
     else:
         print("Double-precision specified.")
-        dtype_data_prev=np.float64
-        dtype_labels_prev=np.int64
-        dtype_energies_prev=np.float64
-        dtype_positions_prev=np.float64
-        dtype_IDX_prev=np.int64
+        dtype_data_prev=np.dtype(np.float64)
+        dtype_labels_prev=np.dtype(np.int64)
+        dtype_energies_prev=np.dtype(np.float64)
+        dtype_positions_prev=np.dtype(np.float64)
+        dtype_IDX_prev=np.dtype(np.int64)
     
     dtype_PATHS_prev=h5py.special_dtype(vlen=str)
     
@@ -145,6 +145,14 @@ if __name__ == '__main__':
         del info
 
     print("\nWe have {} total events".format(total_rows))
+    
+    print("\nSelected dtypes for each data category:")
+    print("labels =", dtype_labels_prev)
+    print("root_files =", dtype_PATHS_prev)
+    print("event_ids =", dtype_IDX_prev)
+    print("event_data =", dtype_data_prev)
+    print("energies =", dtype_energies_prev)
+    print("positions =", dtype_positions_prev)
 
     print("opening the hdf5 file\n")
     f=h5py.File(config.output_file[0],'w')
@@ -183,24 +191,26 @@ if __name__ == '__main__':
     for file_name in files:
         
         info = np.load(file_name,encoding=config.encoding)
-        # Cast arrays to appropriate dtypes
+        
         x_data = info['event_data'].astype(dtype_data_prev)
         labels = info['labels'].astype(dtype_labels_prev)
         
-        energies = info['energies'].astype(dtype_energies_prev)
-        positions = info['positions'].astype(dtype_positions_prev)
-        
         # Process gamma events (adapted from preprocessing_gamma.py by Abhishek Kajal)
         if labels.all() == GAMMA:
-            energies = np.sum(energies, axis=1).reshape(-1,1)
-            positions = positions[:,0,:].reshape(-1, 1,3)
+            energies = np.sum(info['energies'], axis=1).reshape(-1,1)
+            positions = info['positions'][:,0,:].reshape(-1, 1,3)
+        else:
+            energies = info['energies']
+            positions = info['positions']
+        energies = energies.astype(dtype_energies_prev)
+        positions = positions.astype(dtype_positions_prev)
         
         PATHS = info['root_files'].astype(dtype_PATHS_prev)
         IDX = info['event_ids'].astype(dtype_IDX_prev)
         
         i += 1
         
-        offset_next=offset+shape[0]
+        offset_next=offset+x_data.shape[0]
         
         dset_event_data[offset:offset_next,:]=x_data
         dset_labels[offset:offset_next]=labels
