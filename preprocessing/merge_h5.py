@@ -1,12 +1,5 @@
 import numpy as np
-import glob
-import sys
-import os
-from pathlib import Path
 import argparse
-import matplotlib
-import matplotlib.pyplot as plt
-import configparser
 
 #import seaborn as sn
 
@@ -15,6 +8,8 @@ import h5py
 '''
 Merges numpy arrays into an hdf5 file
 '''
+
+ALL_KEYS = ['event_data', 'energies', 'positions', 'labels']
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -25,23 +20,15 @@ def parse_args():
     parser.add_argument('output_file', type=str, nargs=1,
                         help="where do we put the output")
     parser.add_argument('keys', type=str, nargs='*',
-                        help="keys to store")
+                        help="keys to store", default=ALL_KEYS)
     parser.add_argument('--block_size', type=int, default=3500)
     args = parser.parse_args()
     return args
 
-def parse_config(config_path):
-    config = configparser.ConfigParser()
-    config.read(config_path)
-    return config
-
 def merge_h5(config):
     
     #read in the input file list
-    #with open(config.input_file_list[0]) as f:
-        #files = f.readlines()
-        
-    with open(config['FILES']['input_file_list']) as f:
+    with open(config['input_file_list']) as f:
         files = f.readlines()
 
     #remove whitespace 
@@ -55,7 +42,7 @@ def merge_h5(config):
     print("Files are:")
     print(file_list)
 
-    keys=[key for key in config['DATASET']['keys'].split(',')]
+    keys=[key for key in config['keys'].split(',')]
     print("keys are:")
     print(keys)
 
@@ -107,10 +94,6 @@ def merge_h5(config):
             if data.shape[1:]!=shapes[key]:
                 raise(ValueError("shapes changed for key {}"\
                                   "in file {}".format(key,file_name)))
-                    
-
-    
-                    
                                     
     print("keys: {}".format(keys))
     print("shapes: {}".format(shapes))
@@ -121,7 +104,7 @@ def merge_h5(config):
                         
                                   
     print("opening the hdf5 file\n")
-    f=h5py.File(config['FILES']['output_file'],'x')
+    f=h5py.File(config['output_file'],'x')
     
     dsets={}
     for key in keys:
@@ -130,7 +113,7 @@ def merge_h5(config):
                                 dtype=dtypes[key])
         dsets[key]=c_dset
 
-    block_size = int(config['DATASET']['block_size'])
+    block_size = int(config['block_size'])
     for key in keys:
 
         offset=0
@@ -152,16 +135,8 @@ def merge_h5(config):
 
             offset+=block_end
         
-
     f.close()
-                             
-                
-            
-            
-        
-    
 
 if __name__ == '__main__':
-    path_to_config = '/project/'+ os.listdir('/project')[0] + '/akajal/CNN/CNN/merge_config.ini'
-    config=parse_config(path_to_config)
+    config = parse_args()
     merge_h5(config)
