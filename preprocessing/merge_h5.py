@@ -28,7 +28,7 @@ def parse_args():
 def merge_h5(config):
     
     #read in the input file list
-    with open(config['input_file_list']) as f:
+    with open(config.input_file_list[0]) as f:
         files = f.readlines()
 
     #remove whitespace 
@@ -42,7 +42,7 @@ def merge_h5(config):
     print("Files are:")
     print(file_list)
 
-    keys=[key for key in config['keys'].split(',')]
+    keys=[key for key in config.keys.split(',')]
     print("keys are:")
     print(keys)
 
@@ -104,7 +104,7 @@ def merge_h5(config):
                         
                                   
     print("opening the hdf5 file\n")
-    f=h5py.File(config['output_file'],'x')
+    f=h5py.File(config.output_file[0], 'x')
     
     dsets={}
     for key in keys:
@@ -113,7 +113,7 @@ def merge_h5(config):
                                 dtype=dtypes[key])
         dsets[key]=c_dset
 
-    block_size = int(config['block_size'])
+    block_size = int(config.block_size)
     for key in keys:
 
         offset=0
