@@ -42,7 +42,7 @@ def merge_h5(config):
     print("Files are:")
     print(file_list)
 
-    keys=[key for key in config.keys.split(',')]
+    keys=config.keys
     print("keys are:")
     print(keys)
 
@@ -101,9 +101,8 @@ def merge_h5(config):
     print("chunk lengths: {}".format(chunk_lengths))
     print("dtypes: {}".format(dtypes))
     print("total_rows: {}".format(total_rows))
-                        
                                   
-    print("opening the hdf5 file\n")
+    print("opening the hdf5 file")
     f=h5py.File(config.output_file[0], 'x')
     
     dsets={}
@@ -114,8 +113,9 @@ def merge_h5(config):
         dsets[key]=c_dset
 
     block_size = int(config.block_size)
+    
+    print('')
     for key in keys:
-
         offset=0
         for file_index, file_name in enumerate(file_list):
             infile=h5py.File(file_name,"r")
@@ -132,9 +132,10 @@ def merge_h5(config):
                     block_end=chunk_lengths[file_index]
 
                 dsets[key][offset+block_begin:offset+block_end]=data[block_begin:block_end]
-
+                print("\rProcessed file", file_index, "at data block", str(iblock+1)+'/'+str(num_blocks_in_file), "          ", end='')
             offset+=block_end
-        
+    
+    print('')
     f.close()
 
 if __name__ == '__main__':

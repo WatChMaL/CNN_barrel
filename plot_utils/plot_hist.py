@@ -290,7 +290,7 @@ def plot_all(infile, outpath, sample_size, bins, to_plot, show=False):
         
         # Plot overlaid histogram of different event classes
         plot_overlaid_hist(vis_dsets, bins, outpath, fig_id, title="Visible Energy Distributions for Each Event Class (Sampling "+sample_ratio_str+" events)",
-                           xlabel="Visible Energy (MeV)", ylabel="Events", show=show)
+                           left=0, right=1200, xlabel="Visible Energy (MeV)", ylabel="Events", show=show)
         
         fig_id += 1
         
@@ -392,8 +392,10 @@ def plot_overlaid_hist(dsets, bins, outpath, figure_id=0, left=None, right=None,
         # Disregard zero hits
         histogram[0] = 0
         valids = np.arange(len(edges)-1)[histogram > SCALE_X]
-        lefts.append(edges[valids[0]])
-        rights.append(edges[valids[-1]])
+        if left is None:
+            lefts.append(edges[valids[0]])
+        if right is None:
+            rights.append(edges[valids[-1]])
         tops.append(SCALE_Y*np.amax(histogram))
 
     if title is not None: plt.title('\n'.join(wrap(title,60)), fontsize=FONT_TITLE)
