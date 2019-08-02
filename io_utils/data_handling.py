@@ -31,43 +31,59 @@ class WCH5Dataset(Dataset):
         assert val_split+test_split <= 1, "val_split and test_split cannot sum to larger than 1, aborting."
 
         f=h5py.File(path,'r')
-        hdf5_event_data = f["event_data"]
-        hdf5_labels=f["labels"]
-        hdf5_energies=f["energies"]
-        hdf5_positions=f["positions"]
         
-        hdf5_PATHS=f["root_files"]
-        hdf5_IDX=f["event_ids"]
-
-        assert hdf5_event_data.shape[0] == hdf5_labels.shape[0]
-
+        # Data and labels are essential
+        hdf5_event_data = f["event_data"]
         event_data_shape = hdf5_event_data.shape
         event_data_offset = hdf5_event_data.id.get_offset()
         event_data_dtype = hdf5_event_data.dtype
         
+        hdf5_labels=f["labels"]
         labels_shape = hdf5_labels.shape
         labels_offset = hdf5_labels.id.get_offset()
         labels_dtype = hdf5_labels.dtype
         
-        energies_shape = hdf5_energies.shape
-        energies_offset = hdf5_energies.id.get_offset()
-        energies_dtype = hdf5_energies.dtype
-
+        assert hdf5_event_data.shape[0] == hdf5_labels.shape[0], "Number of labels does not match number of events, aborting."
+        
         #this creates a memory map - i.e. events are not loaded in memory here
         #only on get_item
         self.event_data = np.memmap(path, mode='r', shape=event_data_shape, offset=event_data_offset, dtype=event_data_dtype)
         
-
         #this will fit easily in memory even for huge datasets
         self.labels = np.array(hdf5_labels)
+            
+        # Energies and positions are optional
+        try:
+            hdf5_energies=f["energies"]
+            energies_shape = hdf5_energies.shape
+            energies_offset = hdf5_energies.id.get_offset()
+            energies_dtype = hdf5_energies.dtype
+            self.energies = np.array(hdf5_energies)
+            self.has_energies = True
+        except KeyError:
+            print("Warning: No energy labels detected in the dataset.")
+            self.has_energies = False
+            
+        try:
+            hdf5_positions=f["positions"]
+            self.positions = np.array(hdf5_positions)
+            self.has_positions = True
+        except KeyError:
+            print("Warning: No position labels detected in the dataset.")
+            self.has_positions = False
         
-        # This will also fit easily in memory
-        self.energies = np.array(hdf5_energies)
-        self.PATHS = np.array(hdf5_PATHS)
-        self.IDX = np.array(hdf5_IDX)
+        # Root file paths and event ids are required for root traceback
+        try:
+            hdf5_PATHS=f["root_files"]
+            hdf5_IDX=f["event_ids"]
+            self.PATHS = np.array(hdf5_PATHS)
+            self.IDX = np.array(hdf5_IDX)
+            self.has_traceback = True
+        except KeyError:
+            print("Warning: Root file paths and/or event_ids missing, cannot perform traceback on events.")
+            self.has_traceback = False
 
         self.transform=transform
-        
         self.reduced_size = reduced_dataset_size
 
         #the section below handles the subset
@@ -107,7 +123,14 @@ class WCH5Dataset(Dataset):
 
     def __getitem__(self,index):
         if self.transform is None:
-            return np.array(self.event_data[index,:]),  self.labels[index], self.energies[index], self.PATHS[index], self.IDX[index]
+            out = [np.array(self.event_data[index,:]), self.labels[index]]
+            if self.has_energies:
+                out.append(self.energies[index])
+            if self.has_positions:
+                out.append(self.positions[index])
+            if self.has_traceback:
+                out.extend([self.PATHS[index], self.IDX[index]])
+            return out
         else:
             raise NotImplementedError
 

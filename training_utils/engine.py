@@ -325,8 +325,11 @@ class Engine:
         
         pushing = False
         if plt_worst > 0 or plt_best > 0:
-            queues = [DoublePriority(plt_worst, plt_best), DoublePriority(plt_worst, plt_best), DoublePriority(plt_worst, plt_best)]
-            pushing = True
+            if self.dset.has_traceback:
+                queues = [DoublePriority(plt_worst, plt_best), DoublePriority(plt_worst, plt_best), DoublePriority(plt_worst, plt_best)]
+                pushing = True
+            else:
+                print("Warning: attempted to perform root traceback on dataset without traceback capability, skipping.")
         
         # Iterate over the validation set to calculate val_loss and val_acc
         with torch.no_grad():
@@ -335,7 +338,8 @@ class Engine:
             self.model.eval()
             
             # Variables for the confusion matrix
-            loss, accuracy, labels, predictions, softmaxes, energies = [],[],[],[],[],[]
+            loss, accuracy, labels, predictions, softmaxes = [],[],[],[],[]
+            if self.dset.has_energies: energies = []
             
             # Extract the event data and label from the DataLoader iterator
             for i, val_data in enumerate(iter(self.val_iter)):
@@ -350,9 +354,6 @@ class Engine:
                 
                 self.data, self.label = val_data[0:2]
                 self.label = self.label.long()
-                
-                energy, PATH, IDX = val_data[2:5]
-                IDX = IDX.long().numpy()
 
                 # Run the forward procedure and output the result
                 result = self.forward(False)
@@ -361,6 +362,8 @@ class Engine:
                 
                 # Add item to priority queues if necessary
                 if pushing:
+                    PATH, IDX = val_data[3:5]
+                    IDX = IDX.long().numpy()
                     for i, lab in enumerate(self.label):
                         queues[lab].insert((result['softmax'][i][lab], PATH[i], IDX[i]))
                 
@@ -373,10 +376,8 @@ class Engine:
                 labels.extend(self.label)
                 predictions.extend(result['prediction'])
                 softmaxes.extend(result["softmax"])
-                energies.extend(energy)
-                
-                #print(self.data.shape)
-                #print(self.label.shape)
+                if self.dset.has_energies:
+                    energies.extend(val_data[2])
                 
                 val_iterations += 1
         
@@ -425,14 +426,23 @@ class Engine:
         # If requested, save data for analysis
         if save_state:
             plot_data_path = os.path.join(self.config.save_path, VAL_STATE)
-            np.savez_compressed(plot_data_path,
-                                prediction=np.array(predictions),
-                                softmax=np.array(softmaxes),
-                                loss=np.array(loss),
-                                accuracy=np.array(accuracy),
-                                labels=np.array(labels),
-                                energies=np.array(energies),
-                                data=self.config.path)
+            if self.dset.has_energies:
+                np.savez_compressed(plot_data_path,
+                                    prediction=np.array(predictions),
+                                    softmax=np.array(softmaxes),
+                                    loss=np.array(loss),
+                                    accuracy=np.array(accuracy),
+                                    labels=np.array(labels),
+                                    energies=np.array(energies),
+                                    data=self.config.path)
+            else:
+                np.savez_compressed(plot_data_path,
+                                    prediction=np.array(predictions),
+                                    softmax=np.array(softmaxes),
+                                    loss=np.array(loss),
+                                    accuracy=np.array(accuracy),
+                                    labels=np.array(labels),
+                                    data=self.config.path)
             print("Dumped result array to", plot_data_path)
             
         return {'loss': avg_loss, 'accuracy': avg_acc}

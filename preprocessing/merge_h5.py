@@ -9,7 +9,7 @@ import h5py
 Merges numpy arrays into an hdf5 file
 '''
 
-ALL_KEYS = ['event_data', 'energies', 'positions', 'labels']
+ALL_KEYS = ['event_data', 'labels', 'energies', 'positions', 'root_files', 'event_ids']
 
 def parse_args():
     parser = argparse.ArgumentParser(
