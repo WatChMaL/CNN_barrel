@@ -18,6 +18,8 @@ There is an extensive list of flags which can be used to tune the training engin
 - `-bst <integer>` instructs the engine to dump a list of root file paths and indices identifying the *n* best-identified events _of each class_ in the input dataset during validation. This dumps to the same directory as `worst`. The config option for this flag is `best`.
 
 ### Data Handling and Training Behaviour
+Note: the keys of various elements of the input HDF5 dataset are set in the `data_keys.ini` configuration file in the `CNN` root directory. If keys are changed in the file conversion pathway for whatever reason, this configuration file must be updated accordingly for data loading to continue to work properly.
+
 See the wiki page on ROOT file conversion for the conversion pathway from ROOT to .npz to HDF5.
 - `-pat <path to data>` specifies the path to the labeled dataset which the engine will train, test, and validate on. HDF5 is the only supported data format at the moment. The config option for this flag is `path`. Note that if this flag is not specified, only the `plot` task will be able to execute.
 - `-sub <number of events>` specifies a subset of the dataset located at `path` to use, which can be useful for making faster training runs. By default, all of the data is used. The config option for this flag is `subset`.
