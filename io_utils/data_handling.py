@@ -21,6 +21,7 @@ Usage/implementation notes:
 
 from torch.utils.data import Dataset
 import h5py
+from ioconfig import get_keys_dict
 
 import numpy as np
 
@@ -32,13 +33,15 @@ class WCH5Dataset(Dataset):
 
         f=h5py.File(path,'r')
         
+        keys = get_keys_dict()
+        
         # Data and labels are essential
-        hdf5_event_data = f["event_data"]
+        hdf5_event_data = f[keys['DATA']]
         event_data_shape = hdf5_event_data.shape
         event_data_offset = hdf5_event_data.id.get_offset()
         event_data_dtype = hdf5_event_data.dtype
         
-        hdf5_labels=f["labels"]
+        hdf5_labels=f[keys['LABELS']]
         labels_shape = hdf5_labels.shape
         labels_offset = hdf5_labels.id.get_offset()
         labels_dtype = hdf5_labels.dtype
@@ -54,7 +57,7 @@ class WCH5Dataset(Dataset):
             
         # Energies and positions are optional
         try:
-            hdf5_energies=f["energies"]
+            hdf5_energies=f[keys['ENERGIES']]
             energies_shape = hdf5_energies.shape
             energies_offset = hdf5_energies.id.get_offset()
             energies_dtype = hdf5_energies.dtype
@@ -65,7 +68,7 @@ class WCH5Dataset(Dataset):
             self.has_energies = False
             
         try:
-            hdf5_positions=f["positions"]
+            hdf5_positions=f[keys['POSITIONS']]
             self.positions = np.array(hdf5_positions)
             self.has_positions = True
         except KeyError:
@@ -74,8 +77,8 @@ class WCH5Dataset(Dataset):
         
         # Root file paths and event ids are required for root traceback
         try:
-            hdf5_PATHS=f["root_files"]
-            hdf5_IDX=f["event_ids"]
+            hdf5_PATHS=f[keys['ROOT_PATHS']]
+            hdf5_IDX=f['ROOT_IDX']
             self.PATHS = np.array(hdf5_PATHS)
             self.IDX = np.array(hdf5_IDX)
             self.has_traceback = True

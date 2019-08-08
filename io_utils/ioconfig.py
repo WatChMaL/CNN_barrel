@@ -18,6 +18,9 @@ DELIM = ' '
 ARG_DELIM = '='
 NAME_DELIM = '_'
 
+# Default keys for datasets
+KEYS_LIST = 'data_keys.ini'
+
 # Class to encapsulate the necessary properties of a config object attribute
 class ConfigAttr():
     def __init__(self, name, dtype, list_dtype=None, overwrite=True):
@@ -115,3 +118,10 @@ def parse_arg(arg):
             ValueError
             # If not, return string
             return arg
+        
+# Function to load keys from KEYS_LIST file into a dictionary
+def get_keys_dict():
+    parser = configparser.ConfigParser()
+    parser.read(KEYS_LIST)
+    keys = {name:key for name, key in parser.items('data_keys')}
+    return keys

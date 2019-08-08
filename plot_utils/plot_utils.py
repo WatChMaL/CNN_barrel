@@ -15,6 +15,7 @@ from matplotlib.colors import LogNorm
 from scipy.stats import gaussian_kde
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, auc
+from math import sqrt
 
 import plot_utils.mpmt_visual as mpmt_visual
 

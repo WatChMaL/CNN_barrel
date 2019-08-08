@@ -389,7 +389,7 @@ class Engine:
               "\nAvg val acc : ", val_acc/val_iterations)
         
         # If requested, dump list of root files + indices to save_path directory
-        # TODO: Resolve coupling with implementation of event_display in DataTools
+        # TODO: Resolve coupling of formatting with implementation of event_display in DataTools
         if pushing:
             plot_path = os.path.join(self.config.save_path, EXTR_DIR)
             if not os.path.exists(plot_path):

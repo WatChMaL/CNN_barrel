@@ -99,16 +99,23 @@ class Bottleneck(nn.Module):
 class ResNet(nn.Module):
 
     def __init__(self, block, layers, preconv='wide', num_input_channels=2, num_classes=1000, zero_init_residual=False):
-        assert preconv in ['wide', 'long']
+        assert preconv[:4] in ['wide', 'long']
         super(ResNet, self).__init__()
         self.inplanes = 64
         # Added pre-network down-convolution layer
-        if preconv == 'wide':
-            out_channels=num_input_channels
-            self.conv0 = nn.Conv2d(num_input_channels, out_channels, kernel_size=3, stride=2, padding=0, bias=False)
-        elif preconv == 'long':
-            out_channels=2
-            self.conv0 = nn.Conv2d(num_input_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        if preconv.startswith('wide'):
+            out_channels = num_input_channels
+            ksize = 3
+            strd = 2
+            if len(preconv) > 4:
+                ksize = int(preconv[4])
+                if len(preconv) > 5:
+                    strd = int(preconv[5])
+            self.preconv = nn.Conv2d(num_input_channels, out_channels, kernel_size=ksize, stride=strd, padding=0, bias=False)
+        elif preconv.startswith('long'):
+            out_channels = int(preconv[4:])
+            self.preconv = nn.Conv2d(num_input_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+            
         # Old ResNet starts here
         self.conv1 = nn.Conv2d(out_channels, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
@@ -156,7 +163,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv0(x)
+        x = self.preconv(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
