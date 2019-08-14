@@ -364,7 +364,7 @@ def plot_ROC_curve_one_vs_one(softmaxes, labels, energies, softmax_index_dict, l
                 xy = (round(xy[0], 2), round(xy[1], 2))
                 for point in todo.keys():
                     if xy[0] >= point and todo[point]:
-                        ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18)
+                        ax.annotate('(%s, %s)' % xy, xy=xy, textcoords='data', fontsize=18, bbox=dict(boxstyle="square", fc="w"))
                         todo[point] = False
     
             ax.grid(True, which='both', color='grey')
@@ -1050,6 +1050,7 @@ def plot_train_learn_log(train_log, state_log=None, val_log=None, window=128, sa
     
     # Plot training loss
     fig, ax1 = plt.subplots(figsize=(12,8),facecolor='w')
+    plt.grid(color='grey')
     lines.append(ax1.plot(train_epoch, train_loss, linewidth=2, label='Train loss', color='b', alpha=0.5))
     # Plot training accuracy
     ax2 = ax1.twinx()
@@ -1078,14 +1079,23 @@ def plot_train_learn_log(train_log, state_log=None, val_log=None, window=128, sa
         state_log_accuracy = np.array(state_log_csv.accuracy)
         state_log_loss     = np.array(state_log_csv.loss)
         
+        # Find the halfway point on the plot
+        halfway = state_log_epoch[-1] / 2
+        # One fifth of the domain
+        third = state_log_epoch[-1] / 3
+        
         # Plot best state scatter on loss
-        lines.append(ax1.plot(state_log_epoch, state_log_loss, marker='o', markersize=3, linestyle='', label='Best saved states loss', color='b'))
         xy = (round(state_log_epoch[-1],4), round(state_log_loss[-1],4))
-        ax1.annotate('\t(Epoch: %s, Loss: %s)' % xy, xy=xy, textcoords='data', fontsize=14)
+        ax1.annotate('\t(Epoch: %s, Loss: %s)' % xy, xy=xy, xycoords='data', xytext=(xy[0] if (xy[0] < halfway) else (xy[0]-third),xy[1]+0.1),
+                     textcoords='data', fontsize=12,
+                     bbox=dict(boxstyle="square", fc="w"), arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
+        lines.append(ax1.plot(state_log_epoch, state_log_loss, marker='o', markersize=3, linestyle='', label='Best saved states loss', color='b'))
         # Plot best state scatter on accuracy
-        lines.append(ax2.plot(state_log_epoch, state_log_accuracy, marker='o', markersize=3, linestyle='', label='Best saved states accuracy', color='r'))
         xy = (round(state_log_epoch[-1],4), round(state_log_accuracy[-1],4))
-        ax2.annotate('\t(Epoch: %s, Accuracy: %s)' % xy, xy=xy, textcoords='data', fontsize=14)
+        ax2.annotate('\t(Epoch: %s, Accuracy: %s)' % xy, xy=xy, xycoords='data', xytext=(xy[0] if (xy[0] < halfway) else (xy[0]-third),xy[1]-0.1),
+                     textcoords='data', fontsize=12,
+                     bbox=dict(boxstyle="square", fc="w"), arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
+        lines.append(ax2.plot(state_log_epoch, state_log_accuracy, marker='o', markersize=3, linestyle='', label='Best saved states accuracy', color='r'))
     else:
         print("Provided state log", state_log, "cannot be located, skipping best state plot...")
 
@@ -1106,8 +1116,6 @@ def plot_train_learn_log(train_log, state_log=None, val_log=None, window=128, sa
     leg    = ax2.legend(linesum, labels, fontsize=16, loc=5, numpoints=1)
     leg_frame = leg.get_frame()
     leg_frame.set_facecolor('white')
-
-    plt.grid(color='grey')
     
     if save_path is not None:
         plt.savefig(save_path)
