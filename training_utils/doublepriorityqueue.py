@@ -1,6 +1,8 @@
 """
 Double priority queue implementation that keeps an arbitrary number of
 largest and smallest members
+
+Author: Julian Ding
 """
 
 class DoublePriority:

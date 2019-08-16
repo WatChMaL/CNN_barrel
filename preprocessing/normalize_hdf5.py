@@ -16,7 +16,7 @@ import os
 import argparse
 import h5py
 import numpy as np
-from math import ceil, floor, sqrt
+from math import ceil, sqrt
 
 # Key for data dimension that requires normalization
 NORM_CAT = 'event_data'

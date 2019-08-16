@@ -9,7 +9,6 @@ import argparse
 import numpy as np
 import plot_utils.plot_utils as plu
 
-CSV_NAME = "log_train.csv"
 TASKS = [func for func in dir(plu) if func.startswith('plot')]
 
 def parse_args():

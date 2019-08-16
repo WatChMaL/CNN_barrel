@@ -2,13 +2,14 @@
 Engine class implementation for CNN training engine.
 Includes methods to train and validate performance, and save and restore state.
 
-Collaborators: Wojciech Fedorko, Julian Ding, Abhishek Kajal
-
 Notes:
     - DataLoader initializations are coupled to functionality in WCH5Dataset class
       implementation (found in data_handling module)
     - Visualization dumping in training and validation are coupled to implementation
-      of the result_visualizer module
+      of the result_visualizer (and thus the plot_utils) module
+    - TODO: Not urgent, but these coupling issues should probably be addressed at some point
+
+Collaborators: Wojciech Fedorko, Julian Ding, Abhishek Kajal
 '''
 import collections
 import sys
@@ -54,14 +55,12 @@ LOSS_THRESHOLD = 1e-3
 
 # =============================================================================
 
+# Class definition for the training engine
+# Performs training and validation tasks given a neural network object and dataset
 class Engine:
-    """The training engine 
-    
-    Performs training and evaluation
-    """
-
     def __init__(self, model, config):
         self.model = model
+        # Set the active device (cpu vs gpu)
         if (config.device == 'gpu') and config.gpu_list is not None:
             print("requesting gpu ")
             print("gpu list: ")
@@ -71,6 +70,7 @@ class Engine:
             print("main gpu: "+self.devids[0])
             if torch.cuda.is_available():
                 self.device = torch.device(self.devids[0])
+                # Use DataParellel for multiple GPUs
                 if len(self.devids) > 1:
                     print("using DataParallel on these devices: {}".format(self.devids))
                     self.model = nn.DataParallel(self.model, device_ids=config.gpu_list, dim=0)
@@ -86,27 +86,30 @@ class Engine:
         print(self.device)
 
         self.model.to(self.device)
-
+        
+        # Optimizer and loss function are hard-coded (Adam and Cross-Entropy)
         self.optimizer = optim.Adam(self.model.parameters(),eps=1e-3,weight_decay=config.l2_lambda)
         self.criterion = nn.CrossEntropyLoss()
         self.softmax = nn.Softmax(dim=1)
 
-        #placeholders for data and labels
+        # Initialize attributes for data and labels
         self.data=None
         self.labels=None
         self.iteration=None
         
+        # Set saving directories
         self.dirpath=config.save_path
         self.data_description=config.data_description
 
-        # NOTE: The functionality of this block is coupled to the implementation of WCH5Dataset in the iotools module
+        # Generate WCH5Dataset from HDF5 dataset
         if config.path is not None:
             self.dset=WCH5Dataset(config.path,
                                   config.val_split,
                                   config.test_split,
                                   shuffle=config.shuffle,
                                   reduced_dataset_size=config.subset)
-    
+            
+            # Set iterators for training, testing, validation
             self.train_iter=DataLoader(self.dset,
                                        batch_size=config.batch_size_train,
                                        shuffle=False,
@@ -125,13 +128,14 @@ class Engine:
                                       sampler=SubsetRandomSampler(self.dset.test_indices),
                                       num_workers=config.num_workers)
             
+            # Make USER directory if necessary
             try:
                 os.stat(self.dirpath)
             except:
                 print("making a directory for model data: {}".format(self.dirpath))
                 os.mkdir(self.dirpath)
     
-            #add the path for the data type to the dirpath
+            # Add the path for the data type to the dirpath
             self.start_time_str = time.strftime("%Y%m%d_%H%M%S")
             self.dirpath=os.path.join(self.dirpath, self.data_description, self.start_time_str)
     
@@ -140,10 +144,12 @@ class Engine:
             except:
                 print("making a directory for model data for data prepared as: {}".format(self.data_description))
                 os.makedirs(self.dirpath,exist_ok=True)
-                
+            
+            # Set directory for network weight save files
             self.state_dir = os.path.join(config.save_path, STATE_DIR)
             
         else:
+            # Behaviour if no dataset is supplied (can only plot)
             print("Warning: No training dataset supplied, can only run visualization tasks.")
             self.dset = None
             dirpath = os.path.join(self.dirpath, self.data_description)
@@ -154,20 +160,17 @@ class Engine:
 
         self.config=config
 
-
     def forward(self,train=True):
         """
         Args: self should have attributes, model, criterion, softmax, data, label
         Returns: a dictionary of predicted labels, softmax, loss, and accuracy
         """
         with torch.set_grad_enabled(train):
-            #print("this is the data size before permuting: {}".format(data.size()))
             self.data = self.data.float().permute(0,3,1,2)
-            #print("this is the data size after permuting: {}".format(data.size()))
             # Move the data and labels on the selected device
             self.data = self.data.to(self.device)
             self.label = self.label.to(self.device)
-            #Prediction
+            # Prediction
             prediction = self.model(self.data)
             # Training
             loss = -1
@@ -189,16 +192,14 @@ class Engine:
         self.loss.backward()
         self.optimizer.step()
         
+    # Code structure from HKML CNN Image Classification.ipynb (UVic workshop)
     def train(self, epochs=1.0, report_interval=10, valid_interval=100, valid_batches=4, save_interval=1000, save_all=False):
         
         if self.dset is None or len(self.dset.train_indices) == 0:
             print("No examples in training set, skipping training...")
             return
         
-        # CODE BELOW COPY-PASTED FROM [HKML CNN Image Classification.ipynb]
-        # (variable names changed to match new Engine architecture. Added comments and minor debugging)
-        
-        # Keep track of the validation accuracy
+        # Keep track of the validation loss for early-stopping
         best_val_loss = 1e10
         continue_train = True
         run_es = valid_batches > 0 and valid_interval > 0
@@ -211,14 +212,14 @@ class Engine:
         self.train_log, self.val_log, self.best_states = CSVData(os.path.join(self.dirpath, TRAIN_LOG)), CSVData(os.path.join(self.dirpath, VAL_LOG)), CSVData(os.path.join(self.dirpath, BEST_LOG))
         # Set neural net to training mode
         self.model.train()
-        # Initialize epoch counter
+        # Initialize counters
         epoch = 0.
-        # Initialize iteration counter
         iteration = 0
-        # Training loop
+        
+        # TRAINING LOOP
         while int(epoch+0.5) < epochs and continue_train:
             print('\nEpoch',int(epoch+0.5),'Starting @',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            # Loop over data samples and into the network forward function
+            # Loop over data samples and feed batches into the network forward function
             for i, data in enumerate(self.train_iter):
                 
                 # Data and label
@@ -233,12 +234,10 @@ class Engine:
                 epoch += 1./len(self.train_iter)
                 iteration += 1
                 
-                # Log/Report
-                #
-                # Record the current performance on train set
+                # Log/Report: Record the current performance on train set
                 self.train_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                 self.train_log.write()
-                # once in a while, report
+                # Report progress to console every report_interval batches
                 if i==0 or (i+1)%report_interval == 0:
                     if i != 0:
                         print('\r', end='')
@@ -247,21 +246,13 @@ class Engine:
                 # Run validation every valid_interval training batches
                 if run_es and (i+1)%valid_interval == 0:
                     with torch.no_grad():
-                        # self.model.eval()
-                        # val_data = next(iter(self.val_iter))
-                        
-                        ## Data and label
-                        # self.data = val_data[0]
-                        # self.label = val_data[1].long()
-                        
-                        # res = self.forward(False)
-                        
                         print('')
                         res = self.validate(load_best=False, batches=valid_batches, save_state=False, save_plots=False)
                         self.val_log.record(['iteration','epoch','accuracy','loss'],[iteration,epoch,res['accuracy'],res['loss']])
                         self.val_log.write()
                     self.model.train()
                     continue_train = True
+                    
                     # Save best-so-far training state and record its position in the training log
                     if(best_val_loss-res["loss"] > LOSS_THRESHOLD):
                         best_val_loss = res["loss"]
@@ -272,7 +263,7 @@ class Engine:
                 if epoch >= epochs:
                     break
                     
-                # Save on the given intervals
+                # Save latest network weight configuration on the given intervals
                 if(i+1)%save_interval == 0:
                     self.save_state(curr_iter_str=str(iteration) if save_all else LATEST_FLAG)
             print('\r', end='')
@@ -283,12 +274,12 @@ class Engine:
             
         print('')
         
+        # Close log files
         self.val_log.close()
         self.train_log.close()
         self.best_states.close()
 
-    # Function to test the model performance on the validation
-    # dataset ( returns loss, acc, confusion matrix )
+    # Function to test the model performance on the validation dataset
     def validate(self, load_best=True, batches=None, plt_worst=0, plt_best=0, save_state=True, save_plots=True):
         r"""Test the trained model on the validation set.
         
@@ -303,6 +294,7 @@ class Engine:
         Returns : None
         """
         
+        # Check that there are events in the validation dataset
         if self.dset is None or len(self.dset.val_indices) == 0:
             print("No examples in validation set, skipping validation...")
             return
@@ -318,11 +310,12 @@ class Engine:
             except FileNotFoundError:
                 print ("Warning:", self.state_dir, "directory not found, cannot restore best state.")
         
-        # Variables to output at the end
+        # Initialize output variables
         val_loss = 0.0
         val_acc = 0.0
         val_iterations = 0
         
+        # Accumulate best/worst events if requested
         pushing = False
         if plt_worst > 0 or plt_best > 0:
             if self.dset.has_traceback:
@@ -348,10 +341,11 @@ class Engine:
                     print('\r', end='')
                 print("val_iterations: "+str(val_iterations)+"/"+str(len(self.val_iter) if batches is None else min(batches, len(self.val_iter))), end='')
                 
-                # Stop after specified number of batches
+                # Stop after specified number of batches (if specified)
                 if batches is not None and i >= batches:
                     break
                 
+                # Extract data and labels
                 self.data, self.label = val_data[0:2]
                 self.label = self.label.long()
 
@@ -414,16 +408,7 @@ class Engine:
             
             print("Dumped lists of extreme events at", plot_path)
         
-#        np_softmaxes = np.array(softmaxes)
-#
-#        np.save("labels" + str(run) + ".npy", np.hstack(labels))
-#        np.save("energies" + str(run) + ".npy", np.hstack(energies))
-#        np.save("predictions" + str(run) + ".npy", np.hstack(predictions))
-#        np.save("softmax" + str(run) + ".npy",
-#                np_softmaxes.reshape(np_softmaxes.shape[0]*np_softmaxes.shape[1],
-#                                    np_softmaxes.shape[2]))
-        
-        # If requested, save data for analysis
+        # If requested, save data in compressed npz array
         if save_state:
             plot_data_path = os.path.join(self.config.save_path, VAL_STATE)
             if self.dset.has_energies:
@@ -447,8 +432,10 @@ class Engine:
             
         return {'loss': avg_loss, 'accuracy': avg_acc}
             
-    # Function to test the model performance on the test
-    # dataset ( returns loss, acc, confusion matrix )
+    # Function to test the model performance on the test dataset
+    # NOTE (Julian): I have never used this function and I have not made
+    #                many changes to it from its original form, so if this
+    #                function is to be used it probably needs updating!
     def test(self):
         r"""Test the trained model on the test dataset.
         
@@ -501,6 +488,7 @@ class Engine:
               "\nAvg test loss : ", test_loss/test_iterations,
               "\nAvg test acc : ", test_acc/test_iterations)
 
+    # Function for saving the network weight configuration and training progress
     def save_state(self, curr_iter_str=LATEST_FLAG):
         # If saving a best state, update best_state attribute
         if not os.path.isdir(self.state_dir):
@@ -519,6 +507,7 @@ class Engine:
         print('\tSaved checkpoint as:', filename)
         return filename
 
+    # Function for loading state from a save_state file
     def restore_state(self, weight_file):
         # Open a file in read-binary mode
         with open(weight_file, 'rb') as f:

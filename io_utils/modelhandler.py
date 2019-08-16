@@ -1,5 +1,5 @@
 """
-Module for automated model selection
+Module for automated model selection and reflection
 
 Author: Julian Ding
 """
@@ -12,10 +12,10 @@ import inspect
 MODELS_DIR = 'models'
 models = importlib.import_module(MODELS_DIR)
 
-# Helper function to find constructor name
+# Helper function to find constructor name given a name string
 # REQUIRES: The model name string when stripped to "___net" must have a
 #           corresponding class in the module named "[Capitalized]Net"
-#           (ex. resnet_dropout -> ResNet)
+#           (ex. densenet -> DenseNet, resnet_dropout -> ResNet)
 def intuit_constructor(name):
     if 'net' in name:
         constructor = name.split('net', 1)[0].capitalize() + 'Net'
@@ -28,16 +28,19 @@ def intuit_constructor(name):
 # Also returns a list of lists of parameters associated with all available models
 def print_models():
     for name in models.__all__:
+        # Reflect model name
         print(name+':')
         # Suppress extraneous printing to console
         sys.stdout = open(os.devnull, 'w')
         curr_model = importlib.import_module(MODELS_DIR+'.'+name)
         sys.stdout = sys.__stdout__
-        
+        # Intuit all constructors
         constructors = [x for x in dir(curr_model) if x.startswith(name.split('net', 1)[0]+'net')]
+        # Refect all constructor names under model
         for c in constructors:
             print('\t'+c)
         name = intuit_constructor(name)
+        # Reflect all general constructor parameters
         if hasattr(curr_model, name):
             arglist = inspect.getfullargspec(getattr(curr_model, name).__init__).args
             print('\tConstructor parameters:', arglist, '\n')
@@ -45,8 +48,8 @@ def print_models():
             print('\tNo general constructor (__init__) found.\n')
     
 # Returns a function pointer corresponding to the constructor for the specified model
-# REQUIRES: All constructors across all models must SHARE THE SAME PARAMETERS,
-#           otherwise calling this function may break the program
+# Usage: select_params is a list of either 1 or 2 elements that specifies the model name
+#        and optionally the specific constructor to use under that model
 def select_model(select_params):
     assert len(select_params) == 1 or len(select_params) == 2, "Invalid number of model parameters specified ("+str(len(select_params))+")"
     name = select_params[0]
@@ -59,7 +62,7 @@ def select_model(select_params):
     model = importlib.import_module(MODELS_DIR+'.'+name)
     # Make sure the specified constructor exists
     assert constructor in dir(model), "Specified constructor "+constructor+" is not implemented in model "+name
-    # Return specified constructor
+    # Return pointer to specified constructor
     return getattr(model, constructor)
 
 # Check if an argument list is valid for a specified model; stops program if not

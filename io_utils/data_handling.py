@@ -5,13 +5,8 @@ detector data from hdf5 file
 Collaborators: Wojciech Fedorko, Julian Ding
 
 Usage/implementation notes:
-    - The input h5 dataset must contain data categories titled as follows:
-        "event_data": mPMT charge/timing data in the shape
-        (nevents, num_mPMTs_x, num_mPMTs_y, 19 charge channels + 19 timing channels = 38).
-        "labels": truth labels of the particle class that generated each event, shape
-        (nevents, 1). Labels are {gamma: 0, electron: 1, muon: 2}
-        "positions" (currently unused in training engine)
-        "energies" (currently unused in training engine)
+    - The input h5 dataset must contain data categories corresponding to the
+    - contents in the data_keys.ini configuration file in the program root directory
     - Assuming the same h5 dataset, val_split, test_split, and seed, the pseudorandom
       index shuffler will always produce the same training, validation, and testing subsets
       (the pseudorandom number generator is deterministic)
@@ -31,8 +26,9 @@ class WCH5Dataset(Dataset):
         
         assert val_split+test_split <= 1, "val_split and test_split cannot sum to larger than 1, aborting."
 
+        # Open HDF5 dataset for loading
         f=h5py.File(path,'r')
-        
+        # Get data key strings
         keys = get_keys_dict()
         
         # Data and labels are essential
@@ -48,13 +44,12 @@ class WCH5Dataset(Dataset):
         
         assert hdf5_event_data.shape[0] == hdf5_labels.shape[0], "Number of labels does not match number of events, aborting."
         
-        #this creates a memory map - i.e. events are not loaded in memory here
-        #only on get_item
+        # Creates a memory map - i.e. events are not loaded in memory here, only on get_item
         self.event_data = np.memmap(path, mode='r', shape=event_data_shape, offset=event_data_offset, dtype=event_data_dtype)
         
-        #this will fit easily in memory even for huge datasets
+        # Everything below is loaded outright onto memory
         self.labels = np.array(hdf5_labels)
-            
+        
         # Energies and positions are optional
         try:
             hdf5_energies=f[keys['energies']]

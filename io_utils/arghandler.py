@@ -6,7 +6,7 @@ Author: Julian Ding
 
 import argparse
 
-# Class to encapsulate all the attributes of an argument
+# Class to encapsulate all the attributes of a commandline argument
 class Argument():
     def __init__(self, name, dtype, flag,
                  list_dtype=None, default=None, required=False, help='default_help_string'):
@@ -18,7 +18,7 @@ class Argument():
         self.required = required
         self.help = help
         
-# Given a list of Argument objects, generate a config argparse.Namespace object
+# Given a list of Argument objects, generate a corresponding argparse.Namespace object
 def parse_args(args_list):
     parser = argparse.ArgumentParser()
     for arg in args_list:

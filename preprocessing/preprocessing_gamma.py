@@ -1,3 +1,9 @@
+'''
+Legacy code; superceded by function in merge_h5.py
+
+Author: Abhishek Kajal
+'''
+
 #!/usr/bin/env python
 # coding: utf-8
 

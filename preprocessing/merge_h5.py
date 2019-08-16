@@ -1,15 +1,16 @@
-import numpy as np
-import argparse
-
-#import seaborn as sn
-
-import h5py
-
 '''
 Merges numpy arrays into an hdf5 file
+
+Collaborators: Wojtek Fedorko, Julian Ding
 '''
 
-ALL_KEYS = ['event_data', 'labels', 'energies', 'positions', 'root_files', 'event_ids']
+import numpy as np
+import argparse
+import h5py
+from io_utils.ioconfig import get_keys_dict
+
+# Load list of keys from config file
+ALL_KEYS = get_keys_dict().values()
 
 def parse_args():
     parser = argparse.ArgumentParser(

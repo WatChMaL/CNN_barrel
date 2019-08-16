@@ -1,15 +1,20 @@
+'''
+Merges numpy arrays into an hdf5 file
+Implementation details:
+    - The files are opened twice, first to check shape compatibility and
+      dtype matching, the second time to actually merge
+    - TODO: Separate into two functions so data quality checking is not
+            manditory (merging speedup of x2)
+
+Collaborators: Wojtek Fedorko, Julian Ding
+'''
+
 import numpy as np
 import os
 import argparse
-
 import h5py
 
-'''
-Merges numpy arrays into an hdf5 file
-'''
-
 GAMMA = 0 # 0 is the label for gamma events
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -58,6 +63,7 @@ if __name__ == '__main__':
 
     prev_shape=None
     
+    # Set dtype variables if specified
     if config.double_precision is None:
         print("Precision not specified, intuiting precision from data arrays.")
         dtype_data_prev=None
@@ -157,8 +163,7 @@ if __name__ == '__main__':
     print("opening the hdf5 file\n")
     f=h5py.File(config.output_file[0],'w')
 
-    #this will create unchunked (contiguous), uncompressed datasets,
-    #that can be memmaped
+    #this will create unchunked (contiguous), uncompressed datasets that can be memory-mapped
     dset_labels=f.create_dataset("labels",
                                  shape=(total_rows,),
                                  dtype=dtype_labels_prev)
@@ -178,9 +183,7 @@ if __name__ == '__main__':
                                    dtype=dtype_energies_prev)
     dset_positions=f.create_dataset("positions",
                                     shape=(total_rows, 1, 3),
-                                    dtype=dtype_positions_prev)
-
-    
+                                    dtype=dtype_positions_prev)    
     i = 0
     j = 0
     print("Filling hdf5 datasets")

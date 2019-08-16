@@ -18,7 +18,7 @@ import io_utils.modelhandler as modelhandler
 USER_DIR = 'USER/'
 TASKS = ['train', 'test', 'valid', 'plot']
 
-# Global list of arguments to request from commandline
+# Global list of arguments (see arghandler.py for constructor syntax)
 ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
                             default=['resnet', 'resnet18'], help='Specify neural net architecture. Default is resnet18.'),
         arghandler.Argument('params', list, list_dtype=str, flag='-pms',
@@ -70,6 +70,7 @@ ARGS = [arghandler.Argument('model', list, list_dtype=str, flag='-m',
         arghandler.Argument('cfg', str, '-s',
                             default=None, help='Specify name for destination config file. No action by default.')]
 
+# Global dictionary of <argument name> : <ConfigAttr object> for use in loading config
 ATTR_DICT = {arg.name : ioconfig.ConfigAttr(arg.name, arg.dtype,
                                             list_dtype = arg.list_dtype if hasattr(arg, 'list_dtype') else None) for arg in ARGS}
 
@@ -91,15 +92,15 @@ if __name__ == '__main__':
         print("Created user directory", USER_DIR)
     # Load from file
     if config.load is not None:
-        ioconfig.loadConfig(config, config.load, ATTR_DICT)
+        ioconfig.loadConfig(config, USER_DIR, config.load, ATTR_DICT)
     # Check attributes for validity
     for task in config.tasks:
         assert(task in TASKS)
     # Save to file
     if config.cfg is not None:
-        ioconfig.saveConfig(config, config.cfg)
+        ioconfig.saveConfig(config, os.path.join(USER_DIR, config.cfg))
     # Set save directory to under USER_DIR
-    config.save_path = USER_DIR+config.save_path+('' if config.save_path.endswith('/') else '/')
+    config.save_path = os.path.join(USER_DIR, config.save_path)
     # Select requested model
     print('Selected architecture:', config.model)
     # Make sure the specified arguments can be passed to the model
