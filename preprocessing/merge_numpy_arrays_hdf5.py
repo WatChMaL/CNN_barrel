@@ -183,7 +183,12 @@ if __name__ == '__main__':
                                    dtype=dtype_energies_prev)
     dset_positions=f.create_dataset("positions",
                                     shape=(total_rows, 1, 3),
-                                    dtype=dtype_positions_prev)    
+                                    dtype=dtype_positions_prev)
+
+    dset_angles=f.create_dataset("angles",
+                                 shape=(total_rows, 2),
+                                 dtype=np.dtype(np.float32))
+    
     i = 0
     j = 0
     print("Filling hdf5 datasets")
@@ -199,14 +204,33 @@ if __name__ == '__main__':
         labels = info['labels'].astype(dtype_labels_prev)
         
         # Process gamma events (adapted from preprocessing_gamma.py by Abhishek Kajal)
+        directions=info['directions']
         if labels.all() == GAMMA:
+            e_mass=0.51099895000
+            energies=info['energies']
+            mag_momenta=np.sqrt(energies**2-e_mass**2)
+            mag_momenta=np.expand_dims(mag_momenta,2)
+            momenta=mag_momenta*directions
+            momenta_sum=np.sum(momenta,axis=1)
+            momenta_sum_adj=momenta_sum[:,[2,0,1]]
+            momenta_sum_adj_mag=np.sqrt(np.sum(momenta_sum_adj**2,axis=1))
+            directions_proper=momenta_sum_adj/np.expand_dims(momenta_sum_adj_mag,1)
             energies = np.sum(info['energies'], axis=1).reshape(-1,1)
             positions = info['positions'][:,0,:].reshape(-1, 1,3)
         else:
             energies = info['energies']
             positions = info['positions']
+            directions_proper=directions[:,[2,0,1]]
+            
         energies = energies.astype(dtype_energies_prev)
         positions = positions.astype(dtype_positions_prev)
+        
+        planar_mag=np.sqrt(np.sum(directions_proper[:,[0,1]]**2,axis=1))
+        azimuthal=np.arctan2(directions_proper[:,1],directions_proper[:,0])
+        polar=np.arctan2(directions_proper[:,2],planar_mag)
+        azimuthal=azimuthal.reshape(-1,1)
+        polar=polar.reshape(-1,1)
+        angles=np.hstack((polar,azimuthal))
         
         PATHS = info['root_files'].astype(dtype_PATHS_prev)
         IDX = info['event_ids'].astype(dtype_IDX_prev)
@@ -219,6 +243,7 @@ if __name__ == '__main__':
         dset_labels[offset:offset_next]=labels
         dset_energies[offset:offset_next,:]=energies
         dset_positions[offset:offset_next,:,:]=positions
+        dset_angles[offset:offset_next,:]=angles
         
         dset_PATHS[offset:offset_next]=PATHS
         dset_IDX[offset:offset_next]=IDX
