@@ -140,7 +140,7 @@ if __name__ == '__main__':
            
         total_rows += shape[0]
         
-        print("\rLoaded "+os.path.basename(file_name)+' ('+str(i)+'/'+str(len(files))+')'+' | '+"Array shape"+str(shape)+'          ', end='')
+        print("\rLoaded "+os.path.basename(file_name)+' ('+str(i)+'/'+str(len(files))+')'+' | '+"Array shape"+str(shape)+'          ', flush=True)
             
         del x_data
         del labels
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         
         offset=offset_next
         
-        print("\r("+str(i)+"/"+str(len(files))+')'+" | Loaded "+os.path.basename(file_name)+" for writing          ", end='')
+        print("\r("+str(i)+"/"+str(len(files))+')'+" | Loaded "+os.path.basename(file_name)+" for writing          ", flush=True)
         
         del x_data
         del labels
