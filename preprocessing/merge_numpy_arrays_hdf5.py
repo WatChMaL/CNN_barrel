@@ -220,6 +220,7 @@ if __name__ == '__main__':
         else:
             energies = info['energies']
             positions = info['positions']
+            directions=directions.squeeze()
             directions_proper=directions[:,[2,0,1]]
             
         energies = energies.astype(dtype_energies_prev)
